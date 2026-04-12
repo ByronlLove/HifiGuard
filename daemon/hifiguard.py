@@ -183,6 +183,11 @@ class AudioTracker:
     def __init__(self):
         self.data = self._load_json()
         self._frame_count = 0
+        # Agrégation CSV : on écrit 1 ligne/seconde avec le pic max
+        self._csv_buf_z   = 0.0
+        self._csv_buf_a   = 0.0
+        self._csv_buf_vol = 0.0
+        self._csv_buf_ts  = time.time()
 
     def _load_json(self):
         if os.path.exists(JSON_PATH):
@@ -202,19 +207,32 @@ class AudioTracker:
         with open(JSON_PATH, 'w', encoding='utf-8') as f:
             json.dump(self.data, f, indent=2)
 
-    def write_csv(self, db_z, db_a, vol_db, profile_name):
+    def _flush_csv(self, profile_name):
+        """Écrit la ligne CSV avec le pic de la dernière seconde."""
         try:
             with open(CSV_PATH, 'a', newline='', encoding='utf-8') as f:
                 csv.writer(f).writerow([
-                    datetime.now().isoformat(timespec='milliseconds'),
-                    round(db_z, 2), round(db_a, 2), round(vol_db, 2),
+                    datetime.now().isoformat(timespec='seconds'),
+                    round(self._csv_buf_z, 2),
+                    round(self._csv_buf_a, 2),
+                    round(self._csv_buf_vol, 2),
                     profile_name
                 ])
         except Exception:
             pass
+        self._csv_buf_z   = 0.0
+        self._csv_buf_a   = 0.0
+        self._csv_buf_ts  = time.time()
 
     def record(self, db_z, db_a, vol_db, profile_name, seconds, save_every):
-        self.write_csv(db_z, db_a, vol_db, profile_name)
+        # Accumule le MAX sur 1 seconde puis écrit dans le CSV
+        self._csv_buf_z   = max(self._csv_buf_z, db_z)
+        self._csv_buf_a   = max(self._csv_buf_a, db_a)
+        self._csv_buf_vol = vol_db
+        if time.time() - self._csv_buf_ts >= 1.0:
+            self._flush_csv(profile_name)
+
+        # Dose — calculée à chaque frame (précision maximale)
         if db_a < 70:
             return
 
@@ -278,22 +296,11 @@ def write_state(db_a, db_z, vol_db, stats, week_who, profile_name, refresh_cfg):
         'max_db_a':     stats['max_db_a'],
         'refresh':      refresh_cfg,   # transmis à Electron pour qu'il adapte ses timers
     }
-    
-    # 1. On définit le chemin du fichier brouillon (ex: state.json.tmp)
-    temp_path = STATE_PATH + ".tmp"
-    
     try:
-        # 2. On écrit tranquillement dans le fichier brouillon
-        with open(temp_path, 'w', encoding='utf-8') as f:
+        with open(STATE_PATH, 'w', encoding='utf-8') as f:
             json.dump(state, f)
-            
-        # 3. On remplace instantanément l'ancien fichier par le nouveau
-        # C'est une opération "atomique" : Electron ne peut pas l'interrompre
-        os.replace(temp_path, STATE_PATH)
-        
-    except Exception as e:
-        # Si un blocage système très rare survient, on ignore pour cette frame
-        pass
+    except PermissionError:
+        pass   # Electron lit le fichier, on saute cette frame
 
 # ══════════════════════════════════════════════════════════
 # AFFICHAGE CONSOLE
@@ -380,6 +387,9 @@ def main():
 
                 # Silence ou volume coupé → on écrit 0 dans state et on continue
                 if rms_raw < SILENCE_THRESHOLD or is_muted:
+                    # Si 1s écoulée pendant le silence, on flush le buffer CSV (avec 0)
+                    if time.time() - tracker._csv_buf_ts >= 1.0:
+                        tracker._flush_csv(profile_name)
                     stats    = tracker.today_stats()
                     week_who = tracker.weekly_who_dose()
                     write_state(0.0, 0.0, vol_db, stats, week_who, profile_name, refresh_cfg)
