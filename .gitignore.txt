@@ -1,0 +1,9 @@
+# Dépendances
+node_modules/
+
+# Données locales (tes 36 Mo d'historique, etc.)
+data/
+
+# Fichiers système
+.DS_Store
+Thumbs.db

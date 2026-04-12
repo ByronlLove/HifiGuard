@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>HifiGuard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--bg2:#1a1d27;--bg3:#22263a;--border:#2e3350;
+  --text:#e2e8f0;--muted:#64748b;--accent:#6366f1;
+  --safe:#22c55e;--ok:#84cc16;--warn:#f97316;--danger:#ef4444;
+  --radius:10px;--titlebar:40px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;overflow:hidden;user-select:none;}
+#app{display:flex;flex-direction:column;height:100vh;}
+
+/* ── TITLEBAR CUSTOM ── */
+#titlebar{
+  height:var(--titlebar);min-height:var(--titlebar);
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;
+  -webkit-app-region:drag; /* zone draggable */
+  flex-shrink:0;
+  position:relative;z-index:100;
+}
+#titlebar-logo{padding: 40px;font-size:14px;font-weight:700;color:var(--accent);-webkit-app-region:drag;}
+#titlebar-center{flex:1;text-align:center;font-size:12px;color:var(--muted);-webkit-app-region:drag;}
+#titlebar-db{font-size:13px;font-weight:600;margin-right:4px;}
+.win-btn{
+  width:46px;height:var(--titlebar);display:flex;align-items:center;justify-content:center;
+  -webkit-app-region:no-drag;cursor:pointer;font-size:13px;color:var(--muted);
+  transition:background 0.15s;flex-shrink:0;
+}
+.win-btn:hover{background:var(--bg3);color:var(--text);}
+#btn-close:hover{background:#e81123;color:white;}
+
+/* ── LAYOUT ── */
+#body{display:flex;flex:1;overflow:hidden;}
+
+/* ── SIDEBAR ── */
+#sidebar{
+  width:210px;min-width:210px;background:var(--bg2);
+  border-right:1px solid var(--border);display:flex;flex-direction:column;
+  padding:10px 0;transition:width 0.25s ease,min-width 0.25s ease,opacity 0.2s;overflow:hidden;
+}
+#sidebar.collapsed{width:0;min-width:0;opacity:0;pointer-events:none;}
+#hamburger{
+  position:absolute;top:0;left:0;height:var(--titlebar);width:46px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  cursor:pointer;-webkit-app-region:no-drag;transition:background 0.15s;z-index:101;
+}
+#hamburger:hover{background:var(--bg3);}
+#hamburger span{display:block;width:14px;height:2px;background:var(--text);border-radius:2px;}
+.logo{padding:4px 14px 14px 14px;font-size:15px;font-weight:700;color:var(--accent);white-space:nowrap;}
+.logo small{font-size:11px;font-weight:400;color:var(--muted);display:block;margin-top:1px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;color:var(--muted);font-size:13px;border-left:3px solid transparent;transition:all 0.15s;white-space:nowrap;}
+.nav-item:hover{color:var(--text);background:var(--bg3);}
+.nav-item.active{color:var(--text);border-left-color:var(--accent);background:var(--bg3);}
+.nav-icon{font-size:14px;width:18px;text-align:center;}
+.sidebar-spacer{flex:1;}
+#live-panel{margin:0 10px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:11px;}
+#live-db{font-size:24px;font-weight:700;line-height:1;color:var(--safe);}
+#live-label{font-size:11px;color:var(--muted);margin-top:2px;}
+#live-bar-wrap{margin-top:7px;background:var(--bg2);border-radius:4px;height:5px;overflow:hidden;}
+#live-bar{height:100%;border-radius:4px;transition:width 0.3s,background 0.3s;width:0%;background:var(--safe);}
+#live-doses{margin-top:7px;display:flex;flex-direction:column;gap:3px;}
+.mini-dose{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);}
+.mini-dose span:last-child{color:var(--text);}
+
+/* ── MAIN ── */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.page{display:none;flex:1;overflow-y:auto;padding:16px 20px;}
+.page.active{display:flex;flex-direction:column;gap:14px;}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:15px 17px;}
+.card-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:12px;}
+
+/* STAT GRID */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:9px;}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;}
+.stat-val{font-size:21px;font-weight:700;line-height:1;}
+.stat-label{font-size:11px;color:var(--muted);margin-top:3px;}
+.stat-sub{font-size:10px;color:var(--muted);margin-top:2px;opacity:0.7;}
+
+/* DOSE BAR */
+.dose-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
+.dose-name{width:90px;font-size:12px;color:var(--muted);white-space:nowrap;}
+.dose-track{flex:1;background:var(--bg3);border-radius:4px;height:7px;overflow:hidden;}
+.dose-fill{height:100%;border-radius:4px;transition:width 0.5s;}
+.dose-pct{width:50px;text-align:right;font-size:12px;font-weight:600;}
+
+/* CHART */
+.chart-wrap{position:relative;height:240px;}
+.chart-hint{font-size:11px;color:var(--muted);margin-top:6px;text-align:right;}
+.chart-legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
+.legend-item{display:flex;align-items:center;gap:6px;cursor:pointer;padding:3px 7px;border-radius:6px;transition:opacity 0.2s;}
+.legend-item:hover{background:var(--bg3);}
+.legend-item.hidden{opacity:0.3;}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.legend-label{font-size:12px;}
+
+/* CALENDAR */
+#cal-nav-row{display:flex;align-items:center;gap:10px;}
+.cal-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 13px;border-radius:6px;cursor:pointer;font-size:13px;}
+.cal-btn:hover{background:var(--border);}
+#cal-title{font-size:15px;font-weight:600;min-width:170px;text-align:center;}
+#view-year{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;}
+.month-cell{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:13px;cursor:pointer;text-align:center;transition:all 0.2s;}
+.month-cell:hover{border-color:var(--accent);transform:translateY(-2px);}
+.month-cell .month-name{font-size:13px;font-weight:600;}
+.month-cell .month-stats{font-size:11px;color:var(--muted);margin-top:4px;}
+.month-cell .month-bar{margin-top:7px;background:var(--bg2);border-radius:3px;height:4px;overflow:hidden;}
+.month-cell .month-bar-fill{height:100%;border-radius:3px;}
+#view-month{display:none;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.cal-day-header{text-align:center;font-size:11px;color:var(--muted);padding:3px;font-weight:600;}
+.cal-day{aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all 0.15s;}
+.cal-day:hover:not(.empty):not(.nodata){border-color:var(--accent);}
+.cal-day.today{border-color:var(--accent)!important;}
+.cal-day .day-dot{width:5px;height:5px;border-radius:50%;margin-top:3px;}
+.cal-day.safe{background:rgba(34,197,94,.12);}
+.cal-day.ok{background:rgba(132,204,22,.12);}
+.cal-day.warn{background:rgba(249,115,22,.12);}
+.cal-day.danger{background:rgba(239,68,68,.15);}
+.cal-day.nodata{background:var(--bg3);color:var(--muted);cursor:default;}
+.cal-day.empty{cursor:default;}
+#view-day{display:none;}
+#breadcrumb{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);}
+.bc-item{cursor:pointer;transition:color 0.15s;}
+.bc-item:hover{color:var(--text);}
+.bc-current{color:var(--text);font-weight:600;}
+.bc-sep{color:var(--border);}
+
+/* SETTINGS */
+.profile-list{display:flex;flex-direction:column;gap:7px;}
+.profile-item{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:11px 14px;display:flex;align-items:center;justify-content:space-between;transition:border-color 0.15s;}
+.profile-item.active{border-color:var(--accent);background:rgba(99,102,241,.08);}
+.profile-name{font-weight:600;}
+.profile-desc{font-size:12px;color:var(--muted);margin-top:2px;}
+.profile-specs{font-size:11px;color:var(--muted);margin-top:2px;font-family:monospace;}
+.profile-badge{font-size:11px;background:var(--accent);color:#fff;padding:2px 8px;border-radius:20px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.form-row{display:flex;flex-direction:column;gap:4px;}
+.form-row label{font-size:12px;color:var(--muted);}
+.form-row input,.form-row select{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:7px 11px;border-radius:6px;font-size:13px;width:100%;-moz-appearance:textfield;}
+.form-row input::-webkit-outer-spin-button,.form-row input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+.form-row input:focus,.form-row select:focus{outline:none;border-color:var(--accent);}
+.form-row select{cursor:pointer;}
+.form-full{grid-column:1/-1;}
+.threshold-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.threshold-row{display:flex;align-items:center;gap:9px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 12px;}
+.threshold-color{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+.threshold-label{font-size:12px;color:var(--muted);flex:1;}
+.threshold-input{width:65px;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:3px 7px;border-radius:6px;font-size:13px;text-align:center;-moz-appearance:textfield;}
+.threshold-input::-webkit-outer-spin-button,.threshold-input::-webkit-inner-spin-button{-webkit-appearance:none;}
+.refresh-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
+.refresh-card{background:var(--bg3);border:2px solid var(--border);border-radius:var(--radius);padding:12px;cursor:pointer;text-align:center;transition:all 0.15s;}
+.refresh-card:hover{border-color:var(--muted);}
+.refresh-card.active{border-color:var(--accent);background:rgba(99,102,241,.08);}
+.refresh-card .rc-title{font-size:13px;font-weight:600;}
+.refresh-card .rc-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+#custom-refresh-fields{display:none;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;}
+#custom-refresh-fields.visible{display:grid;}
+.btn{padding:7px 15px;border-radius:6px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{opacity:.88;}
+.btn-secondary{background:var(--bg3);color:var(--text);border:1px solid var(--border);}
+.btn-secondary:hover{background:var(--border);}
+.btn-danger{background:rgba(239,68,68,.12);color:var(--danger);border:1px solid rgba(239,68,68,.3);}
+.btn-danger:hover{background:rgba(239,68,68,.22);}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;}
+@keyframes zoomIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+@keyframes zoomOut{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(1.04)}}
+.anim-in{animation:zoomIn .22s ease forwards;}
+.anim-out{animation:zoomOut .18s ease forwards;}
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TITLEBAR CUSTOM -->
+  <div id="titlebar">
+    <div id="hamburger"><span></span><span></span><span></span></div>
+    <div id="titlebar-logo">〣 HifiGuard</div>
+    <div id="titlebar-center">
+      <span id="titlebar-db"></span><span id="titlebar-profile" style="color:var(--muted);"></span>
+    </div>
+    <div class="win-btn" id="btn-minimize" title="Réduire">─</div>
+    <div class="win-btn" id="btn-maximize" title="Agrandir">❐</div>
+    <div class="win-btn" id="btn-close" title="Fermer">✕</div>
+  </div>
+
+  <div id="body">
+    <!-- SIDEBAR -->
+    <nav id="sidebar">
+      <div class="logo">Dosimètre auditif<small>NIOSH / OMS</small></div>
+      <div class="nav-item active" data-page="today"><span class="nav-icon">◈</span>Aujourd'hui</div>
+      <div class="nav-item" data-page="calendar"><span class="nav-icon">☷</span>Historique</div>
+      <div class="nav-item" data-page="settings"><span class="nav-icon">⚙</span>Paramètres</div>
+      <div class="sidebar-spacer"></div>
+      <div id="live-panel">
+        <div id="live-db">--</div>
+        <div id="live-label">dB(A) en cours</div>
+        <div id="live-bar-wrap"><div id="live-bar"></div></div>
+        <div id="live-doses">
+          <div class="mini-dose"><span>NIOSH</span><span id="live-niosh">--%</span></div>
+          <div class="mini-dose"><span>OMS/j</span><span id="live-oms-j">--%</span></div>
+          <div class="mini-dose"><span>OMS/7j</span><span id="live-oms-7j">--%</span></div>
+        </div>
+      </div>
+    </nav>
+
+    <div id="main">
+      <!-- TODAY -->
+      <div class="page active" id="page-today">
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-val" id="s-db" style="color:var(--safe)">--</div><div class="stat-label">dB(A) live</div></div>
+          <div class="stat-card"><div class="stat-val" id="s-niosh">--%</div><div class="stat-label">Dose NIOSH</div><div class="stat-sub">Seuil : 85 dB(A) / 8h</div></div>
+          <div class="stat-card"><div class="stat-val" id="s-omsj">--%</div><div class="stat-label">Dose OMS jour</div><div class="stat-sub">Seuil : 80 dB(A) / ~342min</div></div>
+          <div class="stat-card"><div class="stat-val" id="s-oms7j">--%</div><div class="stat-label">Dose OMS semaine</div><div class="stat-sub">Seuil : 80 dB(A) / 40h</div></div>
+          <div class="stat-card"><div class="stat-val" id="s-max">--</div><div class="stat-label">Pic du jour (dB(A))</div></div>
+          <div class="stat-card"><div class="stat-val" id="s-t80">-- min</div><div class="stat-label">Temps > 80 dB(A)</div></div>
+        </div>
+        <div class="card"><div class="card-title">Niveaux d'exposition</div><div id="dose-bars"></div></div>
+        <div class="card">
+          <div class="card-title">Session en cours</div>
+          <div class="chart-wrap"><canvas id="chart-today"></canvas></div>
+          <div class="chart-hint">🖱 Molette = zoom · Clic+glisser = déplacer · Double-clic = réinitialiser</div>
+          <div class="chart-legend" id="legend-today"></div>
+        </div>
+      </div>
+
+      <!-- CALENDAR -->
+      <div class="page" id="page-calendar">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+          <div id="breadcrumb"></div>
+          <div id="cal-nav-row">
+            <button class="cal-btn" id="cal-prev">←</button>
+            <div id="cal-title">2026</div>
+            <button class="cal-btn" id="cal-next">→</button>
+          </div>
+        </div>
+        <div id="calendar-view">
+          <div id="view-year"></div>
+          <div id="view-month" class="card"><div class="cal-grid" id="cal-month-grid"></div></div>
+          <div id="view-day">
+            <div class="stat-grid" id="day-stats-grid" style="margin-bottom:12px;"></div>
+            <div class="card">
+              <div class="card-title" id="day-chart-title">Courbes du jour</div>
+              <div class="chart-wrap"><canvas id="chart-day"></canvas></div>
+              <div class="chart-hint">🖱 Molette = zoom · Clic+glisser = déplacer · Double-clic = réinitialiser</div>
+              <div class="chart-legend" id="legend-day"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="page" id="page-settings">
+        <div style="font-size:19px;font-weight:700;">Paramètres</div>
+
+        <div class="card">
+          <div class="card-title">Profils matériels</div>
+          <div class="profile-list" id="profile-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Ajouter / modifier un profil</div>
+          <div class="form-grid">
+            <div class="form-row form-full"><label>Nom du profil</label><input id="f-name" placeholder="ex: Sony WH-1000XM5"/></div>
+            <div class="form-row">
+              <label>Sensibilité</label>
+              <div style="display:flex;gap:6px;">
+                <input id="f-sens" type="number" step="0.1" placeholder="96.0" style="flex:1;"/>
+                <select id="f-sens-unit" style="width:90px;">
+                  <option value="dB/mW">dB/mW</option>
+                  <option value="mV/Pa">mV/Pa</option>
+                  <option value="dB/V">dB/V</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row"><label>Impédance (Ω)</label><input id="f-imp" type="number" step="0.5" placeholder="32.0"/></div>
+            <div class="form-row"><label>Tension DAC Vout (Vrms)</label><input id="f-vout" type="number" step="0.01" placeholder="1.2"/></div>
+            <div class="form-row form-full"><label>Description</label><input id="f-desc" placeholder="ex: DAC CX31993..."/></div>
+          </div>
+          <div id="f-maxspl" style="font-size:12px;color:var(--muted);margin:10px 0 12px;min-height:16px;"></div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btn-save-profile">Sauvegarder</button>
+            <button class="btn btn-secondary" id="btn-clear-form">Effacer</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Mode de rafraîchissement</div>
+          <div class="refresh-grid" id="refresh-grid">
+            <div class="refresh-card" data-mode="focus"><div class="rc-title">Focus</div><div class="rc-sub">UI: 250ms<br>Tray: 1s</div></div>
+            <div class="refresh-card" data-mode="tray"><div class="rc-title">Réduit</div><div class="rc-sub">UI: 1s<br>Tray: 1s</div></div>
+            <div class="refresh-card" data-mode="eco"><div class="rc-title">Éco</div><div class="rc-sub">UI: 1s<br>Tray: 2s</div></div>
+            <div class="refresh-card" data-mode="custom"><div class="rc-title">Personnalisé</div><div class="rc-sub">Choix libre</div></div>
+          </div>
+          <div id="custom-refresh-fields">
+            <div class="form-row"><label>Python (ms)</label><input id="rc-python" type="number" placeholder="25" min="10" max="2000"/></div>
+            <div class="form-row"><label>UI poll (ms)</label><input id="rc-ui" type="number" placeholder="250" min="50" max="5000"/></div>
+            <div class="form-row"><label>Tray poll (ms)</label><input id="rc-tray" type="number" placeholder="1000" min="100" max="10000"/></div>
+          </div>
+          <div style="margin-top:12px;"><button class="btn btn-primary" id="btn-save-refresh">Appliquer</button></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Couleurs icône — seuils dB(A)</div>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Niveau à partir duquel chaque couleur s'affiche dans la barre des tâches.</p>
+          <div class="threshold-grid" id="threshold-grid"></div>
+          <div style="margin-top:12px;"><button class="btn btn-primary" id="btn-save-thresholds">Sauvegarder</button></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Données & Daemon</div>
+          <div class="btn-row">
+            <button class="btn btn-secondary" id="btn-export">⤓ Exporter</button>
+            <button class="btn btn-danger" id="btn-restart">⟲ Relancer le daemon</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="renderer.js"></script>
+</body>
+</html>
