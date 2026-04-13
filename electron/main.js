@@ -119,10 +119,10 @@ async function readCsvRangeStreamed(dateFrom, dateTo, secondsPerBucket) {
 
       if (useFixed) {
         const tSec = Math.floor(new Date(ts).getTime() / 1000 / secondsPerBucket)
-        if (!buckets.has(tSec)) buckets.set(tSec, { sumA: 0, sumZ: 0, countA: 0, countZ: 0, ts })
+        if (!buckets.has(tSec)) buckets.set(tSec, { sumA: 0, sumZ: 0, countA: 0, countZ: 0, maxA: 0, maxZ: 0, ts })
         const b = buckets.get(tSec)
-        if (db_a > 0) { b.sumA += db_a; b.countA++ }
-        if (db_z > 0) { b.sumZ += db_z; b.countZ++ }
+        if (db_a > 0) { b.sumA += db_a; b.countA++; if (db_a > b.maxA) b.maxA = db_a }
+        if (db_z > 0) { b.sumZ += db_z; b.countZ++; if (db_z > b.maxZ) b.maxZ = db_z }
       } else {
         rawRows.push({ ts, db_a, db_z })
       }
@@ -151,8 +151,8 @@ async function readCsvRangeStreamed(dateFrom, dateTo, secondsPerBucket) {
       .sort((a, b) => a[0] - b[0])
       .map(([, b]) => ({
         ts:   b.ts,
-        db_a: b.countA > 0 ? b.sumA / b.countA : 0,
-        db_z: b.countZ > 0 ? b.sumZ / b.countZ : 0
+        db_a: b.maxA || 0,   // max pour préserver les pics
+        db_z: b.maxZ || 0,   // max pour cohérence avec db_a
       }))
   } else if (rawRows.length <= MAX_POINTS) {
     rows = rawRows
@@ -162,13 +162,13 @@ async function readCsvRangeStreamed(dateFrom, dateTo, secondsPerBucket) {
     for (let i = 0; i < rawRows.length; i += step) {
       const seg    = rawRows.slice(i, i + step)
       const midRow = seg[Math.floor(seg.length / 2)]
-      // Garder les 0 (silences) dans la moyenne — ne pas les filtrer
+      // db_a et db_z : MAX pour préserver les pics dans les deux courbes
       const vA = seg.map(r => r.db_a)
       const vZ = seg.map(r => r.db_z).filter(v => v > 0)
       rows.push({
         ts:   midRow.ts,
-        db_a: vA.reduce((s, v) => s + v, 0) / vA.length,
-        db_z: vZ.length ? vZ.reduce((s, v) => s + v, 0) / vZ.length : 0
+        db_a: Math.max(...vA),
+        db_z: vZ.length ? Math.max(...vZ) : 0
       })
     }
   }

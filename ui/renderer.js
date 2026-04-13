@@ -31,9 +31,25 @@ const DAYS    = ['L','M','M','J','V','S','D']
 // indépendamment des polls réseau/IPC
 let chartTodayDirty = false
 let chartDayDirty   = false
+// "Follow mode" : si le zoom est ancré à l'extrémité droite,
+// on décale automatiquement la fenêtre quand un nouveau point arrive.
+// Activé dès qu'on zoome ET qu'on se positionne sur le dernier point.
+// Désactivé dès qu'on pan vers la gauche ou qu'on reset le zoom.
+let followMode = false
 
 function rafLoop() {
   if (chartTodayDirty && chartToday) {
+    if (followMode) {
+      // Décaler la fenêtre pour garder le dernier point visible à droite
+      const xScale    = chartToday.scales.x
+      const total     = chartToday.data.labels.length - 1
+      if (xScale && total > 0) {
+        const winSize = xScale.max - xScale.min   // taille de la fenêtre en pts
+        const newMin  = Math.max(0, total - winSize)
+        const newMax  = total
+        chartToday.zoomScale('x', { min: newMin, max: newMax }, 'none')
+      }
+    }
     chartToday.update('none')
     chartTodayDirty = false
   }
@@ -238,8 +254,29 @@ function insertGaps(rows) {
 // OPTIONS CHART COMMUNES
 // ══════════════════════════════════════════════════════════
 const ZOOM_OPTIONS = {
-  zoom:  { wheel:{ enabled:true }, pinch:{ enabled:true }, mode:'x' },
-  pan:   { enabled:true, mode:'x' }
+  zoom: {
+    wheel:  { enabled: true },
+    pinch:  { enabled: true },
+    mode:   'x',
+    onZoom: ({ chart }) => { checkFollowMode(chart) }
+  },
+  pan: {
+    enabled: true,
+    mode:    'x',
+    onPan:   ({ chart }) => { checkFollowMode(chart) }
+  }
+}
+
+// Vérifie si la vue est ancrée à l'extrémité droite des données.
+// Si oui, active le follow mode (la courbe avance en direct).
+function checkFollowMode(chart) {
+  if (!chart || !chart.data.labels.length) return
+  const xScale  = chart.scales.x
+  if (!xScale)  return
+  const total   = chart.data.labels.length - 1
+  const visible = xScale.max
+  // "Ancré à droite" = le dernier point visible est dans les 3 derniers points
+  followMode = (total - visible) <= 3
 }
 
 const TOOLTIP_OPTIONS = {
@@ -283,7 +320,7 @@ function initChartToday() {
       }
     }
   })
-  document.getElementById('chart-today').addEventListener('dblclick', () => zoomToLast10Min(chartToday))
+  document.getElementById('chart-today').addEventListener('dblclick', () => { followMode = false; zoomToLast10Min(chartToday) })
   buildLegend('legend-today', chartToday, datasets)
 }
 
@@ -546,12 +583,27 @@ document.getElementById('cal-prev').addEventListener('click', calPrev)
 document.getElementById('cal-next').addEventListener('click', calNext)
 
 function calPrev() {
-  if (calView==='year')  { calYear--;  renderViewYear() }
-  if (calView==='month') { calMonth--; if(calMonth<0){calMonth=11;calYear--} renderViewMonth() }
+  if (calView==='year')  { calYear--;  renderViewYear(); return }
+  if (calView==='month') { calMonth--; if(calMonth<0){calMonth=11;calYear--} renderViewMonth(); return }
+  if (calView==='day' && calDay) {
+    const d = new Date(calDay); d.setDate(d.getDate() - 1)
+    calDay = d.toISOString().slice(0,10)
+    // Mettre à jour calMonth/calYear si on change de mois
+    calYear = d.getFullYear(); calMonth = d.getMonth()
+    renderViewDay(calDay)
+  }
 }
 function calNext() {
-  if (calView==='year')  { calYear++;  renderViewYear() }
-  if (calView==='month') { calMonth++; if(calMonth>11){calMonth=0;calYear++} renderViewMonth() }
+  if (calView==='year')  { calYear++;  renderViewYear(); return }
+  if (calView==='month') { calMonth++; if(calMonth>11){calMonth=0;calYear++} renderViewMonth(); return }
+  if (calView==='day' && calDay) {
+    const d = new Date(calDay); d.setDate(d.getDate() + 1)
+    // Ne pas aller dans le futur
+    if (d > new Date()) return
+    calDay = d.toISOString().slice(0,10)
+    calYear = d.getFullYear(); calMonth = d.getMonth()
+    renderViewDay(calDay)
+  }
 }
 
 async function renderCalendar() {
