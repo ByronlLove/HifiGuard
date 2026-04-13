@@ -16,11 +16,18 @@ let isPaused = false
 
 // Données session courante (points live)
 let sessionData = { labels: [], dba: [], niosh: [], omsj: [], lastTs: null }
-const SESSION_MAX = 1200  // ~20 min à 1 pt/s
+const SESSION_MAX = 90000  // journée entière (~25h × 3600s/h, largement suffisant)
 
-// Résolution calendrier : transmise directement au main pour le downsampling
-// 0 = auto (max 600 pts), sinon valeur fixe en secondes
+// Résolution pour le graphe calendrier (jour historique)
 let dayResolution = 0
+// Résolution pour le graphe aujourd'hui
+// 0 = auto, sinon valeur fixe en secondes
+let todayResolution = 0
+
+// Buffer haute précision : 10 dernières minutes à ~1pt/s, gardé en RAM
+// Utilisé pour le double-clic "10 dernières min" avec toute la précision
+const HIRES_MAX = 600   // 10 min × 60s
+let hiresBuffer = { labels: [], dba: [], niosh: [], omsj: [], lastTs: null }
 
 const COLORS = { dba:'#6366f1', niosh:'#f97316', omsj:'#22c55e', dbz:'#475569' }
 const MONTHS  = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
@@ -31,23 +38,25 @@ const DAYS    = ['L','M','M','J','V','S','D']
 // indépendamment des polls réseau/IPC
 let chartTodayDirty = false
 let chartDayDirty   = false
-// "Follow mode" : si le zoom est ancré à l'extrémité droite,
-// on décale automatiquement la fenêtre quand un nouveau point arrive.
-// Activé dès qu'on zoome ET qu'on se positionne sur le dernier point.
-// Désactivé dès qu'on pan vers la gauche ou qu'on reset le zoom.
-let followMode = false
+let followMode = false   // scroll auto quand ancré à droite
+let hiresMode  = false   // affiche hiresBuffer (10min précis) au lieu de sessionData
 
 function rafLoop() {
   if (chartTodayDirty && chartToday) {
+    // En mode hires : copie fraîche du hiresBuffer à chaque frame dirty
+    if (hiresMode) {
+      chartToday.data.labels           = [...hiresBuffer.labels]
+      chartToday.data.datasets[0].data = [...hiresBuffer.dba]
+      chartToday.data.datasets[1].data = [...hiresBuffer.niosh]
+      chartToday.data.datasets[2].data = [...hiresBuffer.omsj]
+    }
+    // Follow mode : décaler la fenêtre pour garder le dernier point visible
     if (followMode) {
-      // Décaler la fenêtre pour garder le dernier point visible à droite
-      const xScale    = chartToday.scales.x
-      const total     = chartToday.data.labels.length - 1
+      const xScale = chartToday.scales.x
+      const total  = chartToday.data.labels.length - 1
       if (xScale && total > 0) {
-        const winSize = xScale.max - xScale.min   // taille de la fenêtre en pts
-        const newMin  = Math.max(0, total - winSize)
-        const newMax  = total
-        chartToday.zoomScale('x', { min: newMin, max: newMax }, 'none')
+        const winSize = Math.max(xScale.max - xScale.min, 1)
+        chartToday.zoomScale('x', { min: Math.max(0, total - winSize), max: total }, 'none')
       }
     }
     chartToday.update('none')
@@ -134,11 +143,7 @@ async function init() {
   // pollState n'est qu'un fallback si l'event n'arrive pas
   startLivePoll()
 
-  document.addEventListener('visibilitychange', async () => {
-    if (!document.hidden && currentPage === 'today' && !isPaused) {
-      await reloadTodayFromCSV()
-    }
-  })
+  // Pas de reload au retour de l'alt-tab — sessionData est maintenu en continu
 
   document.addEventListener('keydown', e => {
     if (e.code === 'Space' && currentPage === 'today') {
@@ -270,13 +275,24 @@ const ZOOM_OPTIONS = {
 // Vérifie si la vue est ancrée à l'extrémité droite des données.
 // Si oui, active le follow mode (la courbe avance en direct).
 function checkFollowMode(chart) {
-  if (!chart || !chart.data.labels.length) return
-  const xScale  = chart.scales.x
+  if (chart !== chartToday) return
+  const xScale = chart.scales.x
   if (!xScale)  return
   const total   = chart.data.labels.length - 1
-  const visible = xScale.max
-  // "Ancré à droite" = le dernier point visible est dans les 3 derniers points
-  followMode = (total - visible) <= 3
+  followMode    = (total - xScale.max) <= 3
+
+  // Si on pan vers la gauche en mode hires → sortir du mode hires
+  // et revenir aux sessionData (journée entière)
+  if (!followMode && hiresMode) {
+    hiresMode = false
+    // Copie des sessionData pour éviter les mutations partagées
+    chart.data.labels           = [...sessionData.labels]
+    chart.data.datasets[0].data = [...sessionData.dba]
+    chart.data.datasets[1].data = [...sessionData.niosh]
+    chart.data.datasets[2].data = [...sessionData.omsj]
+    chart.resetZoom()
+    chartTodayDirty = true
+  }
 }
 
 const TOOLTIP_OPTIONS = {
@@ -320,23 +336,23 @@ function initChartToday() {
       }
     }
   })
-  document.getElementById('chart-today').addEventListener('dblclick', () => { followMode = false; zoomToLast10Min(chartToday) })
+  document.getElementById('chart-today').addEventListener('dblclick', () => zoomToLast10Min(chartToday))
   buildLegend('legend-today', chartToday, datasets)
 }
 
 async function reloadTodayFromCSV() {
   const today  = new Date().toISOString().slice(0, 10)
-  const result = await window.hifi.readCsvRange(today + 'T00:00:00', today + 'T23:59:59', 0)
-  const rows   = result.rows || result   // compat si le main renvoie directement un tableau
+  document.getElementById('loading-today')?.classList.remove('hidden')
+  const result = await window.hifi.readCsvRange(today + 'T00:00:00', today + 'T23:59:59', todayResolution)
+  const rows   = result.rows || result
   document.getElementById('loading-today')?.classList.add('hidden')
   if (!rows.length) return
 
   const withGaps = insertGaps(rows)
   sessionData.labels = withGaps.map(r => r.ts ? r.ts.slice(11, 19) : null)
   sessionData.dba    = withGaps.map(r => r.db_a !== null ? r.db_a : null)
-  sessionData.niosh  = withGaps.map(() => null)
+  sessionData.niosh  = withGaps.map(r => r.db_a !== null ? null : null)  // rempli par suivi
   sessionData.omsj   = withGaps.map(() => null)
-  // Réinitialiser le dernier timestamp connu pour éviter les faux gaps
   sessionData.lastTs = rows.length ? rows[rows.length - 1].ts : null
 
   if (chartToday) {
@@ -344,6 +360,11 @@ async function reloadTodayFromCSV() {
     chartToday.data.datasets[0].data = sessionData.dba
     chartToday.data.datasets[1].data = sessionData.niosh
     chartToday.data.datasets[2].data = sessionData.omsj
+    // Ne pas toucher au mode hires si l'utilisateur est dessus
+    if (!hiresMode) {
+      followMode = false
+      chartToday.resetZoom()
+    }
     chartTodayDirty = true
   }
 }
@@ -392,27 +413,50 @@ function appendTodayPoint(state) {
   }
 
   if (chartToday) {
-    chartToday.data.labels           = sessionData.labels
-    chartToday.data.datasets[0].data = sessionData.dba
-    chartToday.data.datasets[1].data = sessionData.niosh
-    chartToday.data.datasets[2].data = sessionData.omsj
-    chartTodayDirty = true   // RAF loop redessine au prochain frame
+    // En mode hires, ne pas écraser les données du chart avec sessionData —
+    // la RAF loop s'en charge avec une copie fraîche du hiresBuffer
+    if (!hiresMode) {
+      chartToday.data.labels           = sessionData.labels
+      chartToday.data.datasets[0].data = sessionData.dba
+      chartToday.data.datasets[1].data = sessionData.niosh
+      chartToday.data.datasets[2].data = sessionData.omsj
+    }
+    chartTodayDirty = true
+  }
+
+  // Alimenter aussi le buffer haute précision (10 min, toujours 1pt/s)
+  const lastHiTs = hiresBuffer.lastTs
+  if (lastHiTs) {
+    const gapHi = localIsoToMs(nowTs) - localIsoToMs(lastHiTs)
+    if (gapHi > 3000 || gapHi < 0) {
+      hiresBuffer.labels.push(null); hiresBuffer.dba.push(null)
+      hiresBuffer.niosh.push(null);  hiresBuffer.omsj.push(null)
+    }
+  }
+  hiresBuffer.lastTs = nowTs
+  hiresBuffer.labels.push(label)
+  hiresBuffer.dba.push(state.db_a > 0 ? state.db_a : 0)
+  hiresBuffer.niosh.push(d.dose_niosh_pct  || null)
+  hiresBuffer.omsj.push(d.dose_who_day_pct || null)
+  if (hiresBuffer.labels.length > HIRES_MAX) {
+    const t = hiresBuffer.labels.length - HIRES_MAX
+    hiresBuffer.labels.splice(0,t); hiresBuffer.dba.splice(0,t)
+    hiresBuffer.niosh.splice(0,t);  hiresBuffer.omsj.splice(0,t)
   }
 }
 
 function zoomToLast10Min(chart) {
-  const labels = chart.data.labels.filter(Boolean)
-  if (labels.length < 2) { chart.resetZoom(); return }
-  const toSec = s => { const [h,m,ss] = s.split(':').map(Number); return h*3600 + m*60 + ss }
-  const lastSec   = toSec(labels[labels.length - 1])
-  const tenMinAgo = lastSec - 600
-  const all = chart.data.labels
-  let startIdx = 0
-  for (let i = 0; i < all.length; i++) {
-    if (!all[i]) continue
-    if (toSec(all[i]) >= tenMinAgo) { startIdx = i; break }
-  }
-  chart.zoomScale('x', { min: startIdx, max: all.length - 1 }, 'none')
+  if (chart !== chartToday || hiresBuffer.labels.length < 2) return
+  hiresMode  = true
+  followMode = true
+  // Copier (pas pointer) les données hires dans le chart
+  // pour éviter que appendTodayPoint modifie le tableau pendant le rendu
+  chart.data.labels           = [...hiresBuffer.labels]
+  chart.data.datasets[0].data = [...hiresBuffer.dba]
+  chart.data.datasets[1].data = [...hiresBuffer.niosh]
+  chart.data.datasets[2].data = [...hiresBuffer.omsj]
+  chart.resetZoom()
+  chartTodayDirty = true
 }
 
 // ══════════════════════════════════════════════════════════
@@ -492,10 +536,12 @@ function createChartDay() {
   // Les 4 datasets sont déclarés dès la création — fillDayChart ne fait que remplir.
   // Ça évite les push() dynamiques qui cassent le rendu Chart.js.
   const datasets = [
-    { label:'dB(A)',    data:[], borderColor:COLORS.dba,                  borderWidth:1.5, pointRadius:0, tension:0.2, spanGaps:false, yAxisID:'y' },
-    { label:'dB(Z)',    data:[], borderColor:COLORS.dbz,                  borderWidth:1,   pointRadius:0, tension:0.2, borderDash:[3,3], spanGaps:false, yAxisID:'y' },
-    { label:'Moyenne',  data:[], borderColor:'rgba(99,102,241,0.55)',      borderWidth:1.5, pointRadius:0, tension:0,   borderDash:[6,3], spanGaps:true,  yAxisID:'y' },
-    { label:'Médiane',  data:[], borderColor:'rgba(249,115,22,0.55)',      borderWidth:1.5, pointRadius:0, tension:0,   borderDash:[2,4], spanGaps:true,  yAxisID:'y' },
+    { label:'dB(A)',    data:[], borderColor:COLORS.dba,             borderWidth:1.5, pointRadius:0, tension:0.2, spanGaps:false, yAxisID:'y'  },
+    { label:'dB(Z)',    data:[], borderColor:COLORS.dbz,             borderWidth:1,   pointRadius:0, tension:0.2, borderDash:[3,3], spanGaps:false, yAxisID:'y'  },
+    { label:'Moyenne',  data:[], borderColor:'rgba(99,102,241,0.55)',borderWidth:1.5, pointRadius:0, tension:0,   borderDash:[6,3], spanGaps:true,  yAxisID:'y'  },
+    { label:'Médiane',  data:[], borderColor:'rgba(249,115,22,0.55)',borderWidth:1.5, pointRadius:0, tension:0,   borderDash:[2,4], spanGaps:true,  yAxisID:'y'  },
+    { label:'NIOSH %',  data:[], borderColor:COLORS.niosh,           borderWidth:1.5, pointRadius:0, tension:0.3, borderDash:[4,4], spanGaps:true,  yAxisID:'y2' },
+    { label:'OMS/j %',  data:[], borderColor:COLORS.omsj,            borderWidth:1.5, pointRadius:0, tension:0.3, borderDash:[4,4], spanGaps:true,  yAxisID:'y2' },
   ]
   chartDay = new Chart(ctx, {
     type:'line', data:{ labels:[], datasets },
@@ -504,8 +550,9 @@ function createChartDay() {
       interaction:{ mode:'index', intersect:false, axis:'x' },
       plugins:{ legend:{ display:false }, zoom:ZOOM_OPTIONS, tooltip:TOOLTIP_OPTIONS },
       scales:{
-        x:{ ticks:{ maxTicksLimit:10, maxRotation:0 } },
-        y:{ title:{ display:true, text:'dB' }, min:0, max:120 }
+        x:  { ticks:{ maxTicksLimit:10, maxRotation:0 } },
+        y:  { position:'left',  title:{ display:true, text:'dB' }, min:0, max:120 },
+        y2: { position:'right', title:{ display:true, text:'Dose %' }, min:0, max:100, grid:{ drawOnChartArea:false } }
       }
     }
   })
@@ -522,7 +569,6 @@ function fillDayChart(rows, stats) {
   chartDay.data.datasets[0].data = withGaps.map(r => r.db_a !== null ? r.db_a : null)
   chartDay.data.datasets[1].data = withGaps.map(r => r.db_z !== null ? r.db_z : null)
 
-  // Datasets 2 et 3 = moyenne et médiane (toujours présents, créés dans createChartDay)
   const len = withGaps.length
   if (stats) {
     chartDay.data.datasets[2].data = Array(len).fill(stats.mean)
@@ -532,10 +578,13 @@ function fillDayChart(rows, stats) {
     chartDay.data.datasets[3].data = []
   }
 
-  // Mettre à jour les stats texte sous le graphe
-  renderDayStats(stats)
+  // NIOSH % et OMS/j % : valeurs cumulées réelles calculées dans main.js
+  // Chaque row contient niosh et whoDay à cet instant précis
+  chartDay.data.datasets[4].data = withGaps.map(r => r.ts ? (r.niosh  || 0) : null)
+  chartDay.data.datasets[5].data = withGaps.map(r => r.ts ? (r.whoDay || 0) : null)
 
-  chartDayDirty = true   // RAF loop redessine
+  renderDayStats(stats)
+  chartDayDirty = true
 }
 
 function renderDayStats(stats) {
@@ -562,7 +611,7 @@ function renderDayStats(stats) {
 // ══════════════════════════════════════════════════════════
 function setDayResolution(spb) {
   dayResolution = spb
-  document.querySelectorAll('.res-btn').forEach(el => {
+  document.querySelectorAll('#page-calendar .res-btn').forEach(el => {
     el.classList.toggle('active', +el.dataset.spb === spb)
   })
   if (!calDay || calView !== 'day') return
@@ -573,7 +622,17 @@ function setDayResolution(spb) {
     const rows  = result.rows || result
     const stats = result.stats || null
     fillDayChart(rows, stats)
+    // Reset zoom pour montrer la journée entière après changement de résolution
+    if (chartDay) { chartDay.resetZoom(); chartDayDirty = true }
   })
+}
+
+function setTodayResolution(spb) {
+  todayResolution = spb
+  document.querySelectorAll('#page-today .res-btn').forEach(el => {
+    el.classList.toggle('active', +el.dataset.spb === spb)
+  })
+  reloadTodayFromCSV()
 }
 
 // ══════════════════════════════════════════════════════════

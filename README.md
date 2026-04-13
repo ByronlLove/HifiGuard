@@ -282,12 +282,12 @@ Pour importer dans Excel : Données → Depuis un fichier texte/CSV, séparateur
 
 ### NIOSH (National Institute for Occupational Safety and Health, 1998)
 
-| Niveau | Durée max | Cumul |
-|--------|-----------|-------|
-| 85 dB(A) | 8h | 100% dose |
-| 88 dB(A) | 4h | 100% dose |
-| 91 dB(A) | 2h | 100% dose |
-| 94 dB(A) | 1h | 100% dose |
+| Niveau   | Durée max | Cumul     |
+|----------|-----------|-----------|
+| 85 dB(A) | 8h        | 100% dose |
+| 88 dB(A) | 4h        | 100% dose |
+| 91 dB(A) | 2h        | 100% dose |
+| 94 dB(A) | 1h        | 100% dose |
 
 Formule : `T(L) = 480 / 2^((L - 85) / 3)` minutes  
 Exchange rate : **3 dB** (doublement de l'énergie = réduction de moitié du temps permis)

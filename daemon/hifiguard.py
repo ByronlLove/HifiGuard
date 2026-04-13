@@ -319,14 +319,98 @@ def bar(db_a, width=20):
 # ══════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════
+# Codes d'erreur Windows Media Foundation qui indiquent une perte de device audio
+# → on tente un reconnect au lieu de mourir
+_WMF_RECOVERABLE = {
+    'Error 0x88890004',   # AUDCLNT_E_DEVICE_INVALIDATED
+    'Error 0x8889000a',   # AUDCLNT_E_RESOURCES_INVALIDATED
+    'Error 0x100000001',  # Erreur de cleanup __exit__ après crash
+}
+MAX_RETRIES    = 10       # tentatives max avant abandon
+RETRY_DELAY_S  = 2.0     # secondes entre chaque tentative
+
+
+def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
+    """
+    Boucle de capture audio. Lève une exception si le device est perdu
+    (récupérable) ou KeyboardInterrupt pour arrêt propre.
+    """
+    python_ms         = refresh_cfg['python_ms']
+    BLOCK_SIZE        = max(int(FS * python_ms / 1000), 256)
+    seconds_per_block = BLOCK_SIZE / FS
+    save_every        = max(1, int(30000 / python_ms))
+
+    b, a = build_a_weighting_filter(FS)
+    zi   = signal.lfilter_zi(b, a)
+
+    devices = AudioUtilities.GetSpeakers()
+    volume  = devices.EndpointVolume
+
+    speaker = sc.default_speaker()
+    mic     = sc.get_microphone(id=speaker.name, include_loopback=True)
+    print(f'Monitoring : {mic.name}')
+
+    with mic.recorder(samplerate=FS, blocksize=BLOCK_SIZE) as recorder:
+        while True:
+            if tracker._frame_count % max(1, int(5000/python_ms)) == 0:
+                try:
+                    new_cfg = load_config()
+                    if new_cfg.get('refresh_mode') != config.get('refresh_mode') or \
+                       new_cfg.get('active_profile') != config.get('active_profile'):
+                        return 'config_changed'   # signal pour relancer proprement
+                except Exception:
+                    pass
+
+            vol_db   = volume.GetMasterVolumeLevel()
+            is_muted = (vol_db < -60)
+
+            data = recorder.record(numframes=BLOCK_SIZE)
+            if len(data.shape) > 1:
+                data = np.mean(data, axis=1)
+
+            rms_raw = np.sqrt(np.mean(data**2))
+
+            if rms_raw < SILENCE_THRESHOLD or is_muted:
+                if time.time() - tracker._csv_buf_ts >= 1.0:
+                    tracker._flush_csv(profile_name)
+                stats    = tracker.today_stats()
+                week_who = tracker.weekly_who_dose()
+                write_state(0.0, 0.0, vol_db, stats, week_who, profile_name, refresh_cfg)
+                continue
+
+            db_z = max(0.0, min(
+                MAX_SPL + 20*np.log10(rms_raw + 1e-12) + vol_db,
+                CEILING_DB
+            ))
+
+            data_a, zi = signal.lfilter(b, a, data, zi=zi)
+            rms_a = np.sqrt(np.mean(data_a**2))
+            db_a  = max(0.0, min(
+                MAX_SPL + 20*np.log10(rms_a + 1e-12) + vol_db,
+                CEILING_DB
+            ))
+
+            tracker.record(db_z, db_a, vol_db, profile_name, seconds_per_block, save_every)
+            stats    = tracker.today_stats()
+            week_who = tracker.weekly_who_dose()
+            write_state(db_a, db_z, vol_db, stats, week_who, profile_name, refresh_cfg)
+
+            info = (
+                f'\r{risk_label(db_a)}{bar(db_a)} '
+                f'Z:{db_z:5.1f} A:{db_a:5.1f} dB(A) | '
+                f'N:{stats["dose_niosh_pct"]:5.1f}% | '
+                f'O/j:{stats["dose_who_day_pct"]:5.1f}% | '
+                f'O/7j:{week_who:5.1f}% | '
+                f'Max:{stats["max_db_a"]:.1f}'
+            )
+            sys.stdout.write('\033[K' + info)
+            sys.stdout.flush()
+
+
 def main():
     config = load_config()
     profile_name, profile, MAX_SPL, sens_dbmw = get_active_profile(config)
-    refresh_cfg  = get_refresh_settings(config)
-    python_ms    = refresh_cfg['python_ms']
-    BLOCK_SIZE   = max(int(FS * python_ms / 1000), 256)
-    seconds_per_block = BLOCK_SIZE / FS
-    save_every   = max(1, int(30000 / python_ms))   # ~30s
+    refresh_cfg = get_refresh_settings(config)
 
     print('=' * 42)
     print('  HifiGuard - Daemon (NIOSH/OMS)')
@@ -334,117 +418,69 @@ def main():
     print(f'  Profil  : {profile_name}')
     print(f'  MAX_SPL : {MAX_SPL:.1f} dB')
     print(f'  Sensi   : {sens_dbmw:.1f} dB/mW (unit: {profile.get("sensitivity_unit","dB/mW")})')
-    print(f'  Mode    : {config.get("refresh_mode","focus")} ({python_ms}ms)')
+    print(f'  Mode    : {config.get("refresh_mode","focus")} ({refresh_cfg["python_ms"]}ms)')
     print(f'  Data    : {DATA_DIR}')
     print('=' * 42)
     print()
 
     tracker = AudioTracker()
     tracker._csv_init()
-    b, a = build_a_weighting_filter(FS)
-    zi   = signal.lfilter_zi(b, a)
 
-    try:
-        devices = AudioUtilities.GetSpeakers()
-        volume  = devices.EndpointVolume
+    retries = 0
 
-        speaker = sc.default_speaker()
+    while retries < MAX_RETRIES:
         try:
-            mic = sc.get_microphone(id=speaker.name, include_loopback=True)
-        except Exception:
-            mic = sc.get_microphone(id=speaker.name, include_loopback=True)
+            result = _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg)
 
-        print(f'Monitoring : {mic.name}')
-        print('Ctrl+C pour quitter\n')
+            if result == 'config_changed':
+                # Rechargement propre de la config sans incrémenter les retries
+                print('\n[Config] Rechargement...')
+                config = load_config()
+                profile_name, profile, MAX_SPL, sens_dbmw = get_active_profile(config)
+                refresh_cfg = get_refresh_settings(config)
+                retries = 0
+                continue
 
-        with mic.recorder(samplerate=FS, blocksize=BLOCK_SIZE) as recorder:
-            while True:
-                # Recharge config si changée (mode refresh, profil...)
-                # (toutes les ~5s pour ne pas exploser le disque)
-                if tracker._frame_count % max(1, int(5000/python_ms)) == 0:
-                    try:
-                        new_cfg = load_config()
-                        if new_cfg.get('refresh_mode') != config.get('refresh_mode') or \
-                           new_cfg.get('active_profile') != config.get('active_profile'):
-                            config = new_cfg
-                            refresh_cfg = get_refresh_settings(config)
-                            python_ms   = refresh_cfg['python_ms']
-                            profile_name, profile, MAX_SPL, sens_dbmw = get_active_profile(config)
-                    except Exception:
-                        pass
+            # Sortie normale (ne devrait pas arriver sans exception)
+            break
 
-                vol_db = volume.GetMasterVolumeLevel()
+        except KeyboardInterrupt:
+            tracker.save_json()
+            stats = tracker.today_stats()
+            print('\n\n' + '='*34)
+            print('  RESUME DE SESSION')
+            print('='*34)
+            print(f'  Profil    : {profile_name}')
+            print(f'  NIOSH/j   : {stats["dose_niosh_pct"]:.2f}%')
+            print(f'  OMS/jour  : {stats["dose_who_day_pct"]:.2f}%')
+            print(f'  OMS/7j    : {tracker.weekly_who_dose():.2f}%')
+            print(f'  Pic max   : {stats["max_db_a"]} dB(A)')
+            print(f'  >80 dB    : {stats["minutes_above_80"]:.1f} min')
+            print(f'  >85 dB    : {stats["minutes_above_85"]:.1f} min')
+            print('='*34)
+            print('  Sauvegarde. A la prochaine !')
+            return
 
-                # Volume Windows à -96 dB = muet sur certains drivers
-                # On considère muet si en dessous de -60 dB
-                is_muted = (vol_db < -60)
+        except Exception as e:
+            err_str = str(e)
+            is_recoverable = any(code in err_str for code in _WMF_RECOVERABLE)
 
-                data = recorder.record(numframes=BLOCK_SIZE)
-                if len(data.shape) > 1:
-                    data = np.mean(data, axis=1)
+            if is_recoverable:
+                retries += 1
+                wait = min(RETRY_DELAY_S * retries, 10.0)  # backoff max 10s
+                print(f'\n[Audio] Device perdu ({err_str}) — reconnexion dans {wait:.0f}s '
+                      f'(tentative {retries}/{MAX_RETRIES})')
+                tracker.save_json()
+                time.sleep(wait)
+                # Réinitialiser le filtre zi au prochain _run_capture
+            else:
+                print(f'\nErreur fatale : {e}')
+                import traceback
+                traceback.print_exc()
+                break
 
-                rms_raw = np.sqrt(np.mean(data**2))
-
-                # Silence ou volume coupé → on écrit 0 dans state et on continue
-                if rms_raw < SILENCE_THRESHOLD or is_muted:
-                    # Si 1s écoulée pendant le silence, on flush le buffer CSV (avec 0)
-                    if time.time() - tracker._csv_buf_ts >= 1.0:
-                        tracker._flush_csv(profile_name)
-                    stats    = tracker.today_stats()
-                    week_who = tracker.weekly_who_dose()
-                    write_state(0.0, 0.0, vol_db, stats, week_who, profile_name, refresh_cfg)
-                    continue
-
-                # dB brut (Z-weighting)
-                db_z = max(0.0, min(
-                    MAX_SPL + 20*np.log10(rms_raw + 1e-12) + vol_db,
-                    CEILING_DB
-                ))
-
-                # dB(A) filtré
-                data_a, zi = signal.lfilter(b, a, data, zi=zi)
-                rms_a = np.sqrt(np.mean(data_a**2))
-                db_a  = max(0.0, min(
-                    MAX_SPL + 20*np.log10(rms_a + 1e-12) + vol_db,
-                    CEILING_DB
-                ))
-
-                tracker.record(db_z, db_a, vol_db, profile_name, seconds_per_block, save_every)
-                stats    = tracker.today_stats()
-                week_who = tracker.weekly_who_dose()
-                write_state(db_a, db_z, vol_db, stats, week_who, profile_name, refresh_cfg)
-
-                info = (
-                    f'\r{risk_label(db_a)}{bar(db_a)} '
-                    f'Z:{db_z:5.1f} A:{db_a:5.1f} dB(A) | '
-                    f'N:{stats["dose_niosh_pct"]:5.1f}% | '
-                    f'O/j:{stats["dose_who_day_pct"]:5.1f}% | '
-                    f'O/7j:{week_who:5.1f}% | '
-                    f'Max:{stats["max_db_a"]:.1f}'
-                )
-                sys.stdout.write('\033[K' + info)
-                sys.stdout.flush()
-
-    except KeyboardInterrupt:
-        tracker.save_json()
-        stats = tracker.today_stats()
-        print('\n\n' + '='*34)
-        print('  RESUME DE SESSION')
-        print('='*34)
-        print(f'  Profil    : {profile_name}')
-        print(f'  NIOSH/j   : {stats["dose_niosh_pct"]:.2f}%')
-        print(f'  OMS/jour  : {stats["dose_who_day_pct"]:.2f}%')
-        print(f'  OMS/7j    : {tracker.weekly_who_dose():.2f}%')
-        print(f'  Pic max   : {stats["max_db_a"]} dB(A)')
-        print(f'  >80 dB    : {stats["minutes_above_80"]:.1f} min')
-        print(f'  >85 dB    : {stats["minutes_above_85"]:.1f} min')
-        print('='*34)
-        print('  Sauvegarde. A la prochaine !')
-
-    except Exception as e:
-        print(f'\nErreur : {e}')
-        import traceback
-        traceback.print_exc()
+    if retries >= MAX_RETRIES:
+        print(f'\n[Audio] Echec après {MAX_RETRIES} tentatives. Arrêt.')
 
 if __name__ == '__main__':
     main()

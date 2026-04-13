@@ -15,6 +15,22 @@ const PYTHON_CMD  = 'python'
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
 
+// ── Constantes normes (miroir de hifiguard.py) ───────────────
+const NIOSH_CL    = 85.0    // Criterion Level dB(A)
+const NIOSH_CT    = 480.0   // Criterion Time minutes
+const WHO_DAY     = 2400.0 / 7   // minutes/jour OMS
+const WHO_WEEK    = 2400.0  // minutes/semaine OMS
+const WHO_SAFE    = 80.0
+
+function permNiosh(db) {
+  if (db < 70) return Infinity
+  return NIOSH_CT / Math.pow(2, (db - NIOSH_CL) / 3)
+}
+function permWhoDay(db) {
+  if (db < 70) return Infinity
+  return WHO_DAY / Math.pow(2, (db - WHO_SAFE) / 3)
+}
+
 // ── Variables globales ─────────────────────────────────────
 let tray          = null
 let mainWindow    = null
@@ -93,6 +109,8 @@ async function readCsvRangeStreamed(dateFrom, dateTo, secondsPerBucket) {
   const buckets  = new Map()
   const rawRows  = []
   const allDbA   = []   // uniquement points avec son, pour moyenne/médiane
+  let cumNiosh  = 0    // dose NIOSH cumulée (%) — calculée en streaming
+  let cumWhoDay = 0    // dose OMS/jour cumulée (%)
 
   await new Promise((resolve, reject) => {
     const stream = fs.createReadStream(CSV_PATH, { encoding: 'utf8' })
@@ -117,14 +135,26 @@ async function readCsvRangeStreamed(dateFrom, dateTo, secondsPerBucket) {
 
       if (db_a > 0) allDbA.push(db_a)
 
+      // Dose cumulée — recalculée fidèlement depuis le CSV (1 ligne = 1 seconde)
+      // Même formule que hifiguard.py : dose += (1min/60) / T_permis * 100
+      if (db_a >= 70) {
+        const minFrac = 1 / 60
+        const tn = permNiosh(db_a)
+        const td = permWhoDay(db_a)
+        if (isFinite(tn) && tn > 0) cumNiosh  += (minFrac / tn) * 100
+        if (isFinite(td) && td > 0) cumWhoDay += (minFrac / td) * 100
+      }
+
       if (useFixed) {
         const tSec = Math.floor(new Date(ts).getTime() / 1000 / secondsPerBucket)
-        if (!buckets.has(tSec)) buckets.set(tSec, { sumA: 0, sumZ: 0, countA: 0, countZ: 0, maxA: 0, maxZ: 0, ts })
+        if (!buckets.has(tSec)) buckets.set(tSec, { sumA: 0, sumZ: 0, countA: 0, countZ: 0, maxA: 0, maxZ: 0, niosh: 0, whoDay: 0, ts })
         const b = buckets.get(tSec)
         if (db_a > 0) { b.sumA += db_a; b.countA++; if (db_a > b.maxA) b.maxA = db_a }
         if (db_z > 0) { b.sumZ += db_z; b.countZ++; if (db_z > b.maxZ) b.maxZ = db_z }
+        b.niosh  = cumNiosh
+        b.whoDay = cumWhoDay
       } else {
-        rawRows.push({ ts, db_a, db_z })
+        rawRows.push({ ts, db_a, db_z, niosh: cumNiosh, whoDay: cumWhoDay })
       }
     })
 
@@ -150,9 +180,11 @@ async function readCsvRangeStreamed(dateFrom, dateTo, secondsPerBucket) {
     rows = Array.from(buckets.entries())
       .sort((a, b) => a[0] - b[0])
       .map(([, b]) => ({
-        ts:   b.ts,
-        db_a: b.maxA || 0,   // max pour préserver les pics
-        db_z: b.maxZ || 0,   // max pour cohérence avec db_a
+        ts:    b.ts,
+        db_a:  b.maxA  || 0,
+        db_z:  b.maxZ  || 0,
+        niosh: b.niosh  || 0,
+        whoDay:b.whoDay || 0,
       }))
   } else if (rawRows.length <= MAX_POINTS) {
     rows = rawRows
@@ -162,13 +194,17 @@ async function readCsvRangeStreamed(dateFrom, dateTo, secondsPerBucket) {
     for (let i = 0; i < rawRows.length; i += step) {
       const seg    = rawRows.slice(i, i + step)
       const midRow = seg[Math.floor(seg.length / 2)]
-      // db_a et db_z : MAX pour préserver les pics dans les deux courbes
-      const vA = seg.map(r => r.db_a)
-      const vZ = seg.map(r => r.db_z).filter(v => v > 0)
+      // db_a et db_z : MAX pour préserver les pics
+      // niosh/whoDay : valeur du dernier point du bucket (dose cumulée à cet instant)
+      const vA   = seg.map(r => r.db_a)
+      const vZ   = seg.map(r => r.db_z).filter(v => v > 0)
+      const last = seg[seg.length - 1]
       rows.push({
-        ts:   midRow.ts,
-        db_a: Math.max(...vA),
-        db_z: vZ.length ? Math.max(...vZ) : 0
+        ts:    midRow.ts,
+        db_a:  Math.max(...vA),
+        db_z:  vZ.length ? Math.max(...vZ) : 0,
+        niosh: last.niosh  || 0,
+        whoDay:last.whoDay || 0,
       })
     }
   }

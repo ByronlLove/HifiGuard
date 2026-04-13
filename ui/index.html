@@ -27,7 +27,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
   flex-shrink:0;position:relative;z-index:100;
 }
 /* Drag uniquement sur le logo et le centre */
-#titlebar-logo{padding:0 40px 0 0;font-size:14px;font-weight:700;color:var(--accent);-webkit-app-region:drag;white-space:nowrap;margin-left:46px;}
+#titlebar-logo{padding:0 40px;font-size:14px;font-weight:700;color:var(--accent);-webkit-app-region:drag;white-space:nowrap;}
 #titlebar-center{flex:1;text-align:center;font-size:12px;color:var(--muted);-webkit-app-region:drag;}
 #titlebar-db{font-size:13px;font-weight:600;margin-right:4px;}
 .win-btn{
@@ -290,7 +290,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
         </div>
         <div class="card"><div class="card-title">Niveaux d'exposition</div><div id="dose-bars"></div></div>
         <div class="card">
-          <div class="card-title">Session en cours</div>
+          <div class="card-title">Aujourd'hui</div>
           <div class="chart-wrap">
             <div class="chart-loading" id="loading-today">
               <div class="spinner"></div>
@@ -298,7 +298,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
             </div>
             <canvas id="chart-today"></canvas>
           </div>
-          <div class="chart-hint">🖱 Molette = zoom · Clic+glisser = déplacer · Double-clic = 10 dernières min</div>
+          <div class="res-bar">
+            <span class="res-label">Résolution :</span>
+            <button class="res-btn active" data-spb="0"   onclick="setTodayResolution(0)">Auto</button>
+            <button class="res-btn"        data-spb="10"  onclick="setTodayResolution(10)">10s</button>
+            <button class="res-btn"        data-spb="60"  onclick="setTodayResolution(60)">1 min</button>
+            <button class="res-btn"        data-spb="300" onclick="setTodayResolution(300)">5 min</button>
+          </div>
+          <div class="chart-hint">🖱 Molette = zoom · Clic+glisser = déplacer · Double-clic = la dernière min (haute précision)</div>
           <div class="chart-legend" id="legend-today"></div>
         </div>
       </div>
