@@ -1,17 +1,19 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('hifi', {
-  getState:        ()           => ipcRenderer.invoke('get-state'),
-  getConfig:       ()           => ipcRenderer.invoke('get-config'),
-  getSuivi:        ()           => ipcRenderer.invoke('get-suivi'),
-  saveConfig:      (config)     => ipcRenderer.invoke('save-config', config),
-  readCsvRange:    (from, to)   => ipcRenderer.invoke('read-csv-range', from, to),
-  exportData:      ()           => ipcRenderer.invoke('export-data'),
-  restartDaemon:   ()           => ipcRenderer.invoke('restart-daemon'),
-  onStateUpdate:   (cb)         => ipcRenderer.on('state-update', (_, s) => cb(s)),
-  onNavigate:      (cb)         => ipcRenderer.on('navigate', (_, page) => cb(page)),
+  getState:        ()                       => ipcRenderer.invoke('get-state'),
+  getConfig:       ()                       => ipcRenderer.invoke('get-config'),
+  getSuivi:        ()                       => ipcRenderer.invoke('get-suivi'),
+  saveConfig:      (config)                 => ipcRenderer.invoke('save-config', config),
+  // secondsPerBucket : 0 = auto (max 600 pts), >0 = résolution fixe en secondes
+  // Le downsampling est fait dans le main process — le renderer reçoit des données légères
+  readCsvRange:    (from, to, spb = 0)      => ipcRenderer.invoke('read-csv-range', from, to, spb),
+  exportData:      ()                       => ipcRenderer.invoke('export-data'),
+  restartDaemon:   ()                       => ipcRenderer.invoke('restart-daemon'),
+  onStateUpdate:   (cb)                     => ipcRenderer.on('state-update', (_, s) => cb(s)),
+  onNavigate:      (cb)                     => ipcRenderer.on('navigate', (_, page) => cb(page)),
   // Contrôles fenêtre (titlebar custom)
-  winMinimize:     ()           => ipcRenderer.send('win-minimize'),
-  winMaximize:     ()           => ipcRenderer.send('win-maximize'),
-  winClose:        ()           => ipcRenderer.send('win-close'),
+  winMinimize:     ()                       => ipcRenderer.send('win-minimize'),
+  winMaximize:     ()                       => ipcRenderer.send('win-maximize'),
+  winClose:        ()                       => ipcRenderer.send('win-close'),
 })

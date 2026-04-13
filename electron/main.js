@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, dialog } = require('electron')
-const path   = require('path')
-const fs     = require('fs')
+const path     = require('path')
+const fs       = require('fs')
+const readline = require('readline')
 const { spawn, execSync } = require('child_process')
 
 // ── Chemins ────────────────────────────────────────────────
@@ -20,12 +21,28 @@ let mainWindow    = null
 let daemonProcess = null
 let pollInterval  = null
 let lastState     = null
-let lastTrayZone  = null   // pour ne recréer l'icône que si la zone change
+let lastStateSent = null   // fingerprint pour éviter les IPC inutiles
+let lastTrayZone  = null
 let windowVisible = false
 
 // ── Timers adaptatifs ─────────────────────────────────────
 let uiPollMs   = 250
 let trayPollMs = 1000
+
+// ── Cache suivi : relit le JSON max toutes les 10s ────────
+let suiviCache     = null
+let suiviCacheTime = 0
+const SUIVI_TTL_MS = 10000
+
+function readSuiviCached() {
+  const now = Date.now()
+  if (suiviCache && (now - suiviCacheTime) < SUIVI_TTL_MS) return suiviCache
+  try {
+    suiviCache     = JSON.parse(fs.readFileSync(JSON_PATH, 'utf8'))
+    suiviCacheTime = now
+  } catch { suiviCache = {} }
+  return suiviCache
+}
 
 // ══════════════════════════════════════════════════════════
 // DAEMON
@@ -56,10 +73,111 @@ function readJSON(p) {
 }
 const readState  = () => readJSON(STATE_PATH)
 const readConfig = () => readJSON(CONFIG_PATH)
-const readSuivi  = () => readJSON(JSON_PATH) || {}
 
 // ══════════════════════════════════════════════════════════
-// ICÔNE TRAY — ne se recrée que si la zone change
+// LECTURE CSV — streaming readline + downsampling dans le main process
+//
+// Principe :
+//   - On ne fait JAMAIS de readFileSync sur historique.csv (peut faire 50+ Mo)
+//   - On lit ligne par ligne via un stream readline non-bloquant
+//   - Le downsampling se fait ici → le renderer reçoit max MAX_POINTS points
+//   - secondsPerBucket > 0 : résolution fixe (1 pt par N secondes)
+//   - secondsPerBucket = 0 : auto (découpe en MAX_POINTS buckets égaux)
+// ══════════════════════════════════════════════════════════
+const MAX_POINTS = 600
+
+async function readCsvRangeStreamed(dateFrom, dateTo, secondsPerBucket) {
+  if (!fs.existsSync(CSV_PATH)) return { rows: [], stats: null }
+
+  const useFixed = secondsPerBucket > 0
+  const buckets  = new Map()
+  const rawRows  = []
+  const allDbA   = []   // uniquement points avec son, pour moyenne/médiane
+
+  await new Promise((resolve, reject) => {
+    const stream = fs.createReadStream(CSV_PATH, { encoding: 'utf8' })
+    const rl     = readline.createInterface({ input: stream, crlfDelay: Infinity })
+    let header   = true
+
+    rl.on('line', line => {
+      if (header) { header = false; return }
+      const s = line.trim()
+      if (!s) return
+
+      const c1 = s.indexOf(',')
+      const c2 = s.indexOf(',', c1 + 1)
+      const c3 = s.indexOf(',', c2 + 1)
+      if (c1 < 0 || c2 < 0 || c3 < 0) return
+
+      const ts = s.slice(0, c1)
+      if (ts < dateFrom || ts > dateTo) return
+
+      const db_z = parseFloat(s.slice(c1 + 1, c2))
+      const db_a = parseFloat(s.slice(c2 + 1, c3))
+
+      if (db_a > 0) allDbA.push(db_a)
+
+      if (useFixed) {
+        const tSec = Math.floor(new Date(ts).getTime() / 1000 / secondsPerBucket)
+        if (!buckets.has(tSec)) buckets.set(tSec, { sumA: 0, sumZ: 0, countA: 0, countZ: 0, ts })
+        const b = buckets.get(tSec)
+        if (db_a > 0) { b.sumA += db_a; b.countA++ }
+        if (db_z > 0) { b.sumZ += db_z; b.countZ++ }
+      } else {
+        rawRows.push({ ts, db_a, db_z })
+      }
+    })
+
+    rl.on('close', resolve)
+    rl.on('error', reject)
+    stream.on('error', reject)
+  })
+
+  // Moyenne et médiane (sur les points avec son uniquement)
+  let stats = null
+  if (allDbA.length > 0) {
+    const mean   = allDbA.reduce((s, v) => s + v, 0) / allDbA.length
+    const sorted = [...allDbA].sort((a, b) => a - b)
+    const mid    = Math.floor(sorted.length / 2)
+    const median = sorted.length % 2 === 0
+      ? (sorted[mid - 1] + sorted[mid]) / 2
+      : sorted[mid]
+    stats = { mean: +mean.toFixed(1), median: +median.toFixed(1), count: allDbA.length }
+  }
+
+  let rows
+  if (useFixed) {
+    rows = Array.from(buckets.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([, b]) => ({
+        ts:   b.ts,
+        db_a: b.countA > 0 ? b.sumA / b.countA : 0,
+        db_z: b.countZ > 0 ? b.sumZ / b.countZ : 0
+      }))
+  } else if (rawRows.length <= MAX_POINTS) {
+    rows = rawRows
+  } else {
+    const step = Math.ceil(rawRows.length / MAX_POINTS)
+    rows = []
+    for (let i = 0; i < rawRows.length; i += step) {
+      const seg    = rawRows.slice(i, i + step)
+      const midRow = seg[Math.floor(seg.length / 2)]
+      // Garder les 0 (silences) dans la moyenne — ne pas les filtrer
+      const vA = seg.map(r => r.db_a)
+      const vZ = seg.map(r => r.db_z).filter(v => v > 0)
+      rows.push({
+        ts:   midRow.ts,
+        db_a: vA.reduce((s, v) => s + v, 0) / vA.length,
+        db_z: vZ.length ? vZ.reduce((s, v) => s + v, 0) / vZ.length : 0
+      })
+    }
+  }
+
+  return { rows, stats }
+}
+
+// ══════════════════════════════════════════════════════════
+// ICÔNE TRAY
 // ══════════════════════════════════════════════════════════
 function getTrayZone(db_a, thresholds) {
   if (db_a === null || db_a === undefined) return 'offline'
@@ -83,10 +201,9 @@ function buildTrayIcon(zone) {
   const size = 16
   const buf  = Buffer.alloc(size * size * 4)
   for (let i = 0; i < size * size; i++) {
-    // Cercle plein centré
-    const x = (i % size) - size/2 + 0.5
-    const y = Math.floor(i / size) - size/2 + 0.5
-    const inside = Math.sqrt(x*x + y*y) < size/2 - 1
+    const x      = (i % size) - size / 2 + 0.5
+    const y      = Math.floor(i / size) - size / 2 + 0.5
+    const inside = Math.sqrt(x * x + y * y) < size / 2 - 1
     buf[i*4+0] = inside ? r : 0
     buf[i*4+1] = inside ? g : 0
     buf[i*4+2] = inside ? b : 0
@@ -95,24 +212,25 @@ function buildTrayIcon(zone) {
   return nativeImage.createFromBuffer(buf, { width: size, height: size })
 }
 
-function updateTray(state) {
+let trayLastPoll = 0
+function updateTray(state, now) {
   if (!tray) return
+  if (now - trayLastPoll < trayPollMs) return
+  trayLastPoll = now
+
   const cfg  = readConfig()
   const t    = cfg && cfg.tray_thresholds
   const db_a = state ? state.db_a : null
   const zone = getTrayZone(db_a, t)
 
-  // Ne recrée l'icône que si la zone change — évite le CPU gaspillé
   if (zone !== lastTrayZone) {
     tray.setImage(buildTrayIcon(zone))
     lastTrayZone = zone
   }
 
-  // Tooltip : toujours mis à jour (pas de re-rendu natif lourd)
   if (state && db_a > 0) {
     tray.setToolTip(
-      `HifiGuard\n` +
-      `${db_a} dB(A)\n` +
+      `HifiGuard\n${db_a} dB(A)\n` +
       `NIOSH: ${state.dose_niosh}% | OMS/j: ${state.dose_who_j}%\n` +
       `OMS/7j: ${state.dose_who_7j}%`
     )
@@ -145,13 +263,13 @@ function buildTrayMenu() {
 async function exportData() {
   const result = await dialog.showSaveDialog({
     title: 'Exporter — HifiGuard',
-    defaultPath: `hifiguard_${new Date().toISOString().slice(0,10)}`,
+    defaultPath: `hifiguard_${new Date().toISOString().slice(0, 10)}`,
     filters: [{ name: 'JSON', extensions: ['json'] }, { name: 'CSV', extensions: ['csv'] }]
   })
   if (result.canceled) return
   const ext = path.extname(result.filePath)
   if (ext === '.json') {
-    const out = { exported_at: new Date().toISOString(), config: readConfig(), suivi: readSuivi() }
+    const out = { exported_at: new Date().toISOString(), config: readConfig(), suivi: readSuiviCached() }
     fs.writeFileSync(result.filePath, JSON.stringify(out, null, 2))
   } else if (ext === '.csv' && fs.existsSync(CSV_PATH)) {
     fs.copyFileSync(CSV_PATH, result.filePath)
@@ -159,7 +277,7 @@ async function exportData() {
 }
 
 // ══════════════════════════════════════════════════════════
-// FENÊTRE — frameless avec titlebar custom
+// FENÊTRE
 // ══════════════════════════════════════════════════════════
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -167,7 +285,7 @@ function createWindow() {
     height: 760,
     minWidth:  800,
     minHeight: 560,
-    frame: false,          // ← supprime la barre Windows native
+    frame: false,
     titleBarStyle: 'hidden',
     backgroundColor: '#0f1117',
     show: false,
@@ -180,7 +298,6 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '..', 'ui', 'index.html'))
   mainWindow.once('ready-to-show', () => { mainWindow.show(); windowVisible = true; adaptPolling(true) })
-
   mainWindow.on('focus',  () => { windowVisible = true;  adaptPolling(true)  })
   mainWindow.on('blur',   () => { windowVisible = false; adaptPolling(false) })
   mainWindow.on('close',  e  => { e.preventDefault(); mainWindow.hide(); windowVisible = false; adaptPolling(false) })
@@ -193,26 +310,21 @@ function showWindow() {
 }
 
 // ══════════════════════════════════════════════════════════
-// POLLING ADAPTATIF
+// POLLING — un seul setInterval, gère live + tray séparément
 // ══════════════════════════════════════════════════════════
 function adaptPolling(focused) {
-  const state  = lastState
   const cfg    = readConfig()
   const mode   = cfg && cfg.refresh_mode || 'focus'
   const custom = cfg && cfg.refresh_custom
 
   if (mode === 'eco') {
-    uiPollMs   = 1000
-    trayPollMs = 2000
+    uiPollMs = 1000; trayPollMs = 2000
   } else if (mode === 'custom' && custom) {
-    uiPollMs   = custom.ui_ms   || 1000
-    trayPollMs = custom.tray_ms || 1000
+    uiPollMs = custom.ui_ms || 1000; trayPollMs = custom.tray_ms || 1000
   } else if (mode === 'focus') {
-    uiPollMs   = focused ? 250 : 1000
-    trayPollMs = 1000
+    uiPollMs = focused ? 250 : 1000; trayPollMs = 1000
   } else if (mode === 'tray') {
-    uiPollMs   = 1000
-    trayPollMs = 1000
+    uiPollMs = 1000; trayPollMs = 1000
   }
 
   restartPolling()
@@ -226,24 +338,37 @@ function restartPolling() {
 function doPoll() {
   const state = readState()
   if (!state) return
+  lastState = state
 
-  // Tray : seulement si le délai tray est écoulé (approx)
-  updateTray(state)
+  const now = Date.now()
 
-  if (JSON.stringify(state) !== JSON.stringify(lastState)) {
-    lastState = state
-    if (mainWindow && !mainWindow.isDestroyed() && windowVisible) {
+  // Tray géré avec son propre throttle dans updateTray()
+  updateTray(state, now)
+
+  // Renderer : IPC uniquement si state a réellement changé
+  if (mainWindow && !mainWindow.isDestroyed() && windowVisible) {
+    const fingerprint = `${state.ts}|${state.db_a}`
+    if (fingerprint !== lastStateSent) {
+      lastStateSent = fingerprint
       mainWindow.webContents.send('state-update', state)
     }
   }
 }
 
 // ══════════════════════════════════════════════════════════
-// IPC
+// IPC HANDLERS
 // ══════════════════════════════════════════════════════════
-ipcMain.handle('get-state',  () => readState())
+
+// ── Live (thread renderer dédié au live) ──────────────────
+// Renvoie le state déjà en mémoire — zéro I/O
+ipcMain.handle('get-state', () => lastState || readState())
+
+// ── Config ────────────────────────────────────────────────
 ipcMain.handle('get-config', () => readConfig())
-ipcMain.handle('get-suivi',  () => readSuivi())
+
+// ── Suivi : avec cache 10s ────────────────────────────────
+// Le renderer demande ponctuellement, pas en boucle serrée
+ipcMain.handle('get-suivi', () => readSuiviCached())
 
 ipcMain.handle('save-config', (_, config) => {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2))
@@ -252,24 +377,22 @@ ipcMain.handle('save-config', (_, config) => {
   return true
 })
 
-ipcMain.handle('read-csv-range', (_, dateFrom, dateTo) => {
-  if (!fs.existsSync(CSV_PATH)) return []
-  const lines = fs.readFileSync(CSV_PATH, 'utf8').split('\n')
-  const rows  = []
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (!line) continue
-    const [ts, db_z, db_a, vol_db, profile] = line.split(',')
-    if (ts >= dateFrom && ts <= dateTo)
-      rows.push({ ts, db_z: +db_z, db_a: +db_a, vol_db: +vol_db, profile })
+// ── CSV : stream async + downsampling ici ─────────────────
+// secondsPerBucket transmis par le renderer (0 = auto)
+// Le renderer reçoit MAX_POINTS points max — jamais les rows brutes
+ipcMain.handle('read-csv-range', async (_, dateFrom, dateTo, secondsPerBucket = 0) => {
+  try {
+    return await readCsvRangeStreamed(dateFrom, dateTo, secondsPerBucket)
+  } catch (err) {
+    console.error('[CSV] Erreur lecture:', err.message)
+    return { rows: [], stats: null }
   }
-  return rows
 })
 
 ipcMain.handle('export-data',    () => exportData())
 ipcMain.handle('restart-daemon', () => restartDaemon())
 
-// Contrôles fenêtre depuis le titlebar custom
+// ── Contrôles fenêtre ─────────────────────────────────────
 ipcMain.on('win-minimize', () => mainWindow && mainWindow.minimize())
 ipcMain.on('win-maximize', () => {
   if (!mainWindow) return
@@ -286,7 +409,7 @@ function setAutoLaunch(enable) {
   try {
     if (enable) execSync(`reg add "${key}" /v HifiGuard /t REG_SZ /d "${process.execPath}" /f`)
     else        execSync(`reg delete "${key}" /v HifiGuard /f`)
-  } catch(e) { console.error('AutoLaunch:', e.message) }
+  } catch (e) { console.error('AutoLaunch:', e.message) }
 }
 
 // ══════════════════════════════════════════════════════════
