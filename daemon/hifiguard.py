@@ -28,8 +28,10 @@ from pycaw.pycaw import AudioUtilities
 # ══════════════════════════════════════════════════════════
 # CHEMINS
 # ══════════════════════════════════════════════════════════
-BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR    = os.path.join(BASE_DIR, '..', 'data')
+# On pointe vers le dossier APPDATA officiel de Windows
+APPDATA_DIR = os.environ.get('APPDATA')
+DATA_DIR    = os.path.join(APPDATA_DIR, 'HifiGuard', 'data')
+
 CONFIG_PATH = os.path.join(DATA_DIR, 'config.json')
 JSON_PATH   = os.path.join(DATA_DIR, 'suivi_audio.json')
 CSV_PATH    = os.path.join(DATA_DIR, 'historique.csv')
