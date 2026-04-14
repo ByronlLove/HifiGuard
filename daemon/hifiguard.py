@@ -246,6 +246,9 @@ class AudioTracker:
                 'minutes_above_80':  0.0,
                 'minutes_above_85':  0.0,
                 'profile':           profile_name,
+                '_sum_a':     0.0, '_count_a': 0,
+                '_sum_z':     0.0, '_count_z': 0,
+                '_buckets_a': {},
             }
         d = self.data[today]
         minutes = seconds / 60.0
@@ -260,6 +263,26 @@ class AudioTracker:
         d['max_db_a']           = max(d['max_db_a'], round(db_a, 1))
         if db_a >= 80: d['minutes_above_80'] += minutes
         if db_a >= 85: d['minutes_above_85'] += minutes
+        # Moyenne et médiane db(A)/db(Z)
+        if '_sum_a' not in d:
+            d['_sum_a'] = 0.0; d['_count_a'] = 0
+            d['_sum_z'] = 0.0; d['_count_z'] = 0
+            d['_buckets_a'] = {}
+        d['_sum_a']  += db_a; d['_count_a'] += 1
+        d['_sum_z']  += db_z; d['_count_z'] += 1
+        bk = str(round(db_a * 2) / 2)  # bucket 0.5 dB pour médiane approx
+        d['_buckets_a'][bk] = d['_buckets_a'].get(bk, 0) + 1
+        d['mean_db_a']   = round(d['_sum_a'] / d['_count_a'], 1)
+        d['mean_db_z']   = round(d['_sum_z'] / d['_count_z'], 1)
+        # Médiane approx depuis les buckets
+        total_pts = sum(d['_buckets_a'].values())
+        half_pts  = total_pts / 2
+        cum       = 0
+        for bv in sorted(d['_buckets_a'].keys(), key=float):
+            cum += d['_buckets_a'][bv]
+            if cum >= half_pts:
+                d['median_db_a'] = float(bv)
+                break
 
         self._frame_count += 1
         if self._frame_count % save_every == 0:

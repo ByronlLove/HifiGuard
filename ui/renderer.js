@@ -194,25 +194,64 @@ document.addEventListener('contextmenu', e => { if (!e.target.closest('#ctx-menu
 document.getElementById('ctx-delete-day').addEventListener('click', async () => {
   if (!ctxTarget) return
   const key = ctxTarget.key
-  if (!confirm(`Supprimer toutes les données du ${key} ?`)) return
-  const r = await window.hifi.deleteDayData(key)
-  if (r.ok) {
-    suivi = await window.hifi.getSuivi(); suiviLastFetch = Date.now()
-    if (calView === 'month') renderViewMonth()
-    else if (calView === 'year') renderViewYear()
-  }
+  const [y,m,d] = key.split('-')
+  hideCtxMenu()
+  showConfirm(
+    `Supprimer le ${parseInt(d)} ${MONTHS[parseInt(m)-1]} ${y} ?`,
+    'Toutes les mesures de ce jour seront effacées définitivement.',
+    async () => {
+      const r = await window.hifi.deleteDayData(key)
+      if (r.ok) {
+        suivi = await window.hifi.getSuivi(); suiviLastFetch = Date.now()
+        if (calView === 'month') renderViewMonth()
+        else renderViewYear()
+      }
+    }
+  )
 })
 
 document.getElementById('ctx-delete-month').addEventListener('click', async () => {
   if (!ctxTarget) return
   const [y, m] = ctxTarget.key.split('-')
-  if (!confirm(`Supprimer toutes les données de ${MONTHS[parseInt(m)-1]} ${y} ?`)) return
-  const r = await window.hifi.deleteMonthData(parseInt(y), parseInt(m))
-  if (r.ok) {
-    suivi = await window.hifi.getSuivi(); suiviLastFetch = Date.now()
-    renderViewYear()
-  }
+  hideCtxMenu()
+  showConfirm(
+    `Supprimer ${MONTHS[parseInt(m)-1]} ${y} ?`,
+    'Toutes les mesures de ce mois seront effacées définitivement.',
+    async () => {
+      const r = await window.hifi.deleteMonthData(parseInt(y), parseInt(m))
+      if (r.ok) {
+        suivi = await window.hifi.getSuivi(); suiviLastFetch = Date.now()
+        renderViewYear()
+      }
+    }
+  )
 })
+
+
+// ── Popups custom ────────────────────────────────────────
+function showConfirm(title, message, onConfirm) {
+  document.getElementById('modal-title').textContent   = title
+  document.getElementById('modal-message').textContent = message
+  document.getElementById('modal-overlay').classList.add('visible')
+  const btnOk     = document.getElementById('modal-ok')
+  const btnCancel = document.getElementById('modal-cancel')
+  const close = () => document.getElementById('modal-overlay').classList.remove('visible')
+  btnOk.onclick     = () => { close(); onConfirm() }
+  btnCancel.onclick = close
+}
+
+function showToast(message) {
+  let toast = document.getElementById('hifi-toast')
+  if (!toast) {
+    toast = document.createElement('div')
+    toast.id = 'hifi-toast'
+    document.body.appendChild(toast)
+  }
+  toast.textContent = message
+  toast.classList.add('visible')
+  clearTimeout(toast._t)
+  toast._t = setTimeout(() => toast.classList.remove('visible'), 3000)
+}
 
 // Boutons métrique calendrier
 document.querySelectorAll('.metric-btn').forEach(el => {
@@ -837,7 +876,11 @@ function renderViewYear() {
   }).join('')
   document.querySelectorAll('.month-cell').forEach(el => {
     el.addEventListener('click', () => { calMonth = +el.dataset.month; animTransition(renderViewMonth) })
-    el.addEventListener('contextmenu', e => showCtxMenu(e, 'month', `${calYear}-${String(+el.dataset.month+1).padStart(2,'0')}`))
+    el.addEventListener('contextmenu', e => {
+      e.preventDefault()
+      e.stopPropagation()
+      showCtxMenu(e, 'month', `${calYear}-${String(+el.dataset.month+1).padStart(2,'0')}`)
+    })
   })
 }
 
@@ -911,7 +954,11 @@ function renderViewMonth() {
   }
   grid.querySelectorAll('.cal-day:not(.empty):not(.nodata)').forEach(el => {
     el.addEventListener('click', () => { calDay = el.dataset.key; animTransition(() => renderViewDay(calDay)) })
-    el.addEventListener('contextmenu', e => showCtxMenu(e, 'day', el.dataset.key))
+    el.addEventListener('contextmenu', e => {
+      e.preventDefault()
+      e.stopPropagation()
+      showCtxMenu(e, 'day', el.dataset.key)
+    })
   })
 }
 
@@ -979,9 +1026,10 @@ async function renderSettings() {
   renderThresholds()
   document.getElementById('btn-export').onclick          = () => window.hifi.exportData()
   document.getElementById('btn-purge-old').onclick       = async () => {
-    if (!confirm('Supprimer toutes les données de plus de 90 jours ? Cette action est irréversible.')) return
+    showConfirm('Supprimer les données > 90 jours ?', 'Cette action est irréversible.', async () => {
     const r = await window.hifi.deleteOldData(90)
-    if (r.ok) { suivi = await window.hifi.getSuivi(); suiviLastFetch = Date.now(); alert('Données supprimées.') }
+    if (r.ok) { suivi = await window.hifi.getSuivi(); suiviLastFetch = Date.now(); showToast('Données de plus de 90 jours supprimées.') }
+    })
   }
   document.getElementById('btn-restart').onclick         = () => window.hifi.restartDaemon()
   document.getElementById('btn-clear-form').onclick      = clearForm
@@ -1147,6 +1195,32 @@ function formatDateFR(key) {
   return `${parseInt(d)} ${MONTHS[parseInt(m)-1]} ${y}`
 }
 
+
+
+// ── Popups custom ────────────────────────────────────────
+function showConfirm(title, message, onConfirm) {
+  document.getElementById('modal-title').textContent   = title
+  document.getElementById('modal-message').textContent = message
+  document.getElementById('modal-overlay').classList.add('visible')
+  const btnOk     = document.getElementById('modal-ok')
+  const btnCancel = document.getElementById('modal-cancel')
+  const close = () => document.getElementById('modal-overlay').classList.remove('visible')
+  btnOk.onclick     = () => { close(); onConfirm() }
+  btnCancel.onclick = close
+}
+
+function showToast(message) {
+  let toast = document.getElementById('hifi-toast')
+  if (!toast) {
+    toast = document.createElement('div')
+    toast.id = 'hifi-toast'
+    document.body.appendChild(toast)
+  }
+  toast.textContent = message
+  toast.classList.add('visible')
+  clearTimeout(toast._t)
+  toast._t = setTimeout(() => toast.classList.remove('visible'), 3000)
+}
 
 // Boutons métrique calendrier
 document.querySelectorAll('.metric-btn').forEach(el => {

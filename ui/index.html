@@ -231,6 +231,31 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 ::-webkit-scrollbar{width:5px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+/* MODAL CONFIRM custom */
+#modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;
+  display:none;align-items:center;justify-content:center;
+}
+#modal-overlay.visible{display:flex;}
+#modal-box{
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
+  padding:24px 28px;min-width:320px;max-width:440px;box-shadow:0 16px 40px rgba(0,0,0,.6);
+  animation:zoomIn .18s ease;
+}
+#modal-title{font-size:16px;font-weight:700;margin-bottom:8px;}
+#modal-message{font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5;}
+#modal-actions{display:flex;justify-content:flex-end;gap:8px;}
+
+/* TOAST */
+#hifi-toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);
+  background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+  padding:10px 18px;font-size:13px;color:var(--text);
+  box-shadow:0 4px 16px rgba(0,0,0,.5);
+  opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;z-index:10001;
+}
+#hifi-toast.visible{opacity:1;transform:translateX(-50%) translateY(0);}
+
 /* Pendant le drag de fenêtre : désactiver toutes les transitions pour éviter le lag */
 body.dragging *{transition:none!important;animation:none!important;}
 body.dragging #main{pointer-events:none;}
@@ -339,7 +364,7 @@ body.dragging #main{pointer-events:none;}
             <button class="res-btn"        data-spb="60"  onclick="setTodayResolution(60)">1 min</button>
             <button class="res-btn"        data-spb="300" onclick="setTodayResolution(300)">5 min</button>
           </div>
-          <div class="chart-hint">🖱 Molette = zoom · Clic+glisser = déplacer · Double-clic = la dernière min (haute précision)</div>
+          <div class="chart-hint">🖱 Molette = zoom · Clic+glisser = déplacer · Double-clic = les 10 dernières min (haute précision)</div>
           <div class="chart-legend" id="legend-today"></div>
         </div>
       </div>
@@ -469,6 +494,16 @@ body.dragging #main{pointer-events:none;}
         </div>
       </div>
 
+    </div>
+  </div>
+</div>
+<div id="modal-overlay">
+  <div id="modal-box">
+    <div id="modal-title"></div>
+    <div id="modal-message"></div>
+    <div id="modal-actions">
+      <button class="btn btn-secondary" id="modal-cancel">Annuler</button>
+      <button class="btn btn-danger" id="modal-ok">Supprimer</button>
     </div>
   </div>
 </div>
