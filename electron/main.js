@@ -8,20 +8,25 @@ const LOCALES_DIR = app.isPackaged
 const { spawn, execSync } = require('child_process')
 
 // ── Chemins ────────────────────────────────────────────────
-const DATA_DIR    = path.join(__dirname, '..', 'data')
-const STATE_PATH  = path.join(DATA_DIR, 'state.json')
-const CONFIG_PATH = path.join(DATA_DIR, 'config.json')
-const JSON_PATH   = path.join(DATA_DIR, 'suivi_audio.json')
-const CSV_PATH    = path.join(DATA_DIR, 'historique.csv')
+// En production, on doit impérativement écrire dans le dossier utilisateur (%APPDATA%)
+const userDataPath = app.getPath('userData')
+const DATA_DIR     = path.join(userDataPath, 'data')
+
+const STATE_PATH   = path.join(DATA_DIR, 'state.json')
+const CONFIG_PATH  = path.join(DATA_DIR, 'config.json')
+const JSON_PATH    = path.join(DATA_DIR, 'suivi_audio.json')
+const CSV_PATH     = path.join(DATA_DIR, 'historique.csv')
+
 // En production (electron-builder), le daemon est compilé en .exe via PyInstaller
 // et placé dans resources/daemon/hifiguard.exe
 // En développement, on lance le .py directement avec python
-const IS_PROD     = app.isPackaged
-const DAEMON_PATH = IS_PROD
+const IS_PROD      = app.isPackaged
+const DAEMON_PATH  = IS_PROD
   ? path.join(process.resourcesPath, 'daemon', 'hifiguard.exe')
   : path.join(__dirname, '..', 'daemon', 'hifiguard.py')
-const PYTHON_CMD  = IS_PROD ? null : 'python'
+const PYTHON_CMD   = IS_PROD ? null : 'python'
 
+// Création du dossier de données s'il n'existe pas
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
 
 // ── Constantes normes (miroir de hifiguard.py) ───────────────
