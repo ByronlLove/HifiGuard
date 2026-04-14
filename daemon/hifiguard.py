@@ -40,26 +40,11 @@ STATE_PATH  = os.path.join(DATA_DIR, 'state.json')
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # ══════════════════════════════════════════════════════════
-# CONFIG PAR DÉFAUT
+# CONFIG PAR DÉFAUT 
 # ══════════════════════════════════════════════════════════
 DEFAULT_CONFIG = {
-    "active_profile": "Artti T10",
-    "profiles": {
-        "Artti T10": {
-            "sensitivity":      96.0,
-            "sensitivity_unit": "dB/mW",   # dB/mW | mV/Pa | dB/V
-            "impedance":        16.5,
-            "dac_vout":         1.2,
-            "description":      "Artti T10 + DAC CX31993/MAX97220"
-        },
-        "Sennheiser HD599 SE": {
-            "sensitivity":      50.0,
-            "sensitivity_unit": "mV/Pa",
-            "impedance":        50.0,
-            "dac_vout":         1.2,
-            "description":      "Sennheiser HD599 SE + DAC CX31993/MAX97220"
-        }
-    },
+    "active_profile": "",
+    "profiles": {},
     "refresh_mode": "focus",          # focus | eco | custom
     "refresh_custom": {
         "python_ms":  25,             # intervalle bloc Python (ms)
@@ -359,7 +344,6 @@ _WMF_RECOVERABLE = {
 MAX_RETRIES    = 10       # tentatives max avant abandon
 RETRY_DELAY_S  = 2.0     # secondes entre chaque tentative
 
-
 def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
     """
     Boucle de capture audio. Lève une exception si le device est perdu
@@ -382,6 +366,22 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
 
     with mic.recorder(samplerate=FS, blocksize=BLOCK_SIZE) as recorder:
         while True:
+            # ── MODE ATTENTE (Si aucun profil n'est configuré) ─────────
+            if not profile_name:
+                time.sleep(1.0) # Ne consomme pas de processeur
+                stats = tracker.today_stats()
+                write_state(0.0, 0.0, 0.0, stats, tracker.weekly_who_dose(), "En attente de configuration...", refresh_cfg)
+                
+                # On vérifie toutes les secondes si l'utilisateur a créé un profil
+                try:
+                    new_cfg = load_config()
+                    if new_cfg.get('active_profile') and new_cfg.get('active_profile') in new_cfg.get('profiles', {}):
+                        return 'config_changed' # Redémarre l'écoute !
+                except Exception:
+                    pass
+                continue
+            # ───────────────────────────────────────────────────────────
+
             if tracker._frame_count % max(1, int(5000/python_ms)) == 0:
                 try:
                     new_cfg = load_config()
@@ -435,7 +435,6 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
             )
             sys.stdout.write('\033[K' + info)
             sys.stdout.flush()
-
 
 def main():
     config = load_config()
