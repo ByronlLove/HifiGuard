@@ -2,7 +2,7 @@
 
 **Dosimètre auditif personnel pour casques et écouteurs — Windows**
 
-*Read this in other languages: [Français](README_FR.md).*
+*Read this in other languages: [ENGLISH](README.md).*
 
 HifiGuard est un dosimètre auditif pour Windows, basé sur Electron et Python, conçu pour le suivi de l'exposition sonore lors de l'utilisation de casques ou d'écouteurs. L'application intercepte le flux audio numérique système via le loopback WASAPI et calcule, en fonction des spécifications électriques du matériel, la pression acoustique (SPL) théorique reçue à l'oreille.
 
