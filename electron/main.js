@@ -54,6 +54,7 @@ let lastState     = null
 let lastStateSent = null   // fingerprint pour éviter les IPC inutiles
 let lastTrayZone  = null
 let windowVisible = false
+let isQuitting = false
 
 // ── Timers adaptatifs ─────────────────────────────────────
 let uiPollMs   = 250
@@ -298,15 +299,19 @@ function buildTrayMenu() {
     { type: 'separator' },
     { label: 'Ouvrir', click: () => showWindow() },
     { type: 'separator' },
-    { label: '🔄 Relancer le daemon Python', click: () => restartDaemon() },
+    { label: 'Relancer le daemon Python', click: () => restartDaemon() },
     { type: 'separator' },
-    { label: '📤 Exporter les données', click: () => exportData() },
-    { label: '⚙️ Paramètres', click: () => { showWindow(); mainWindow && mainWindow.webContents.send('navigate', 'settings') } },
+    { label: 'Exporter les données', click: () => exportData() },
+    { label: 'Paramètres', click: () => { showWindow(); mainWindow && mainWindow.webContents.send('navigate', 'settings') } },
     { type: 'separator' },
-    { label: 'Quitter', click: () => { stopDaemon(); app.quit() } }
+    { label: 'Quitter', click: () => { 
+        isQuitting = true;
+        stopDaemon(); 
+        app.quit(); 
+      } 
+    }
   ])
 }
-
 // ══════════════════════════════════════════════════════════
 // EXPORT
 // ══════════════════════════════════════════════════════════
@@ -349,16 +354,33 @@ function createWindow() {
   })
 
   mainWindow.loadFile(path.join(__dirname, '..', 'ui', 'index.html'))
-  mainWindow.once('ready-to-show', () => { mainWindow.show(); windowVisible = true; adaptPolling(true) })
+  
+  mainWindow.once('ready-to-show', () => { 
+    mainWindow.show()
+    windowVisible = true
+    adaptPolling(true) 
+  })
+  
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.key === 'F12') {
       if (mainWindow.webContents.isDevToolsOpened()) mainWindow.webContents.closeDevTools()
       else mainWindow.webContents.openDevTools({ mode: 'detach' })
     }
   })
+  
   mainWindow.on('focus',  () => { windowVisible = true;  adaptPolling(true)  })
   mainWindow.on('blur',   () => { windowVisible = false; adaptPolling(false) })
-  mainWindow.on('close',  e  => { e.preventDefault(); mainWindow.hide(); windowVisible = false; adaptPolling(false) })
+  
+  // ── MODIFICATION ICI : On vérifie si on doit vraiment quitter ──
+  mainWindow.on('close',  e  => { 
+    if (!isQuitting) {
+      e.preventDefault()
+      mainWindow.hide()
+      windowVisible = false
+      adaptPolling(false)
+    }
+  })
+  
   mainWindow.on('closed', () => { mainWindow = null })
 }
 
@@ -569,7 +591,11 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', e => e.preventDefault())
+
 app.on('before-quit', () => {
+  isQuitting = true // Sécurité supplémentaire
   if (pollInterval) clearInterval(pollInterval)
   stopDaemon()
+  // ── MODIFICATION ICI : Destruction du "fantôme" ──
+  if (tray) tray.destroy() 
 })
