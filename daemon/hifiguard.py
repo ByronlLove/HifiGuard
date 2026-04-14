@@ -84,9 +84,14 @@ def load_config():
     if os.path.exists(CONFIG_PATH):
         try:
             with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+                # Le bouclier : on vérifie que les clés existent bien
+                if 'active_profile' in data and 'profiles' in data:
+                    return data
         except Exception:
             pass
+    
+    # Si le fichier n'existe pas ou qu'il est incomplet, on recrée la config par défaut
     save_config(DEFAULT_CONFIG)
     return DEFAULT_CONFIG
 
