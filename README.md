@@ -2,6 +2,8 @@
 
 **Personal hearing dosimeter for headphones and earphones — Windows**
 
+*Read this in other languages: [Français](README_FR.md).*
+
 HifiGuard is a hearing dosimeter for Windows, built on Electron and Python, designed to monitor sound exposure when using headphones or earphones. The application intercepts the digital audio stream from the system via the WASAPI loopback interface and calculates, based on the hardware's electrical specifications, the theoretical sound pressure level (SPL) received at the ear.
 
 The analysis engine applies A-weighting frequency filtering (IEC 61672-1 standard) to reflect the sensitivity of human hearing. It quantifies daily and weekly exposure against the NIOSH and WHO/ITU H.870 reference standards.
