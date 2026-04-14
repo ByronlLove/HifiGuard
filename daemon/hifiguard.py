@@ -121,9 +121,19 @@ def compute_max_spl(profile):
     return max_spl, sens_dbmw
 
 def get_active_profile(config):
-    name    = config['active_profile']
-    profile = config['profiles'][name]
+    # On utilise .get() pour ne pas crasher si la clé n'existe pas
+    name = config.get('active_profile', "")
+    profiles = config.get('profiles', {})
+    
+    # Si aucun profil n'est sélectionné ou qu'il n'existe pas dans la liste
+    if not name or name not in profiles:
+        # On renvoie des valeurs nulles/vides sécurisées (Mode Attente)
+        return "", {}, 0.0, 0.0
+        
+    # Si tout va bien, on charge le profil normalement
+    profile = profiles[name]
     max_spl, sens_dbmw = compute_max_spl(profile)
+    
     return name, profile, max_spl, sens_dbmw
 
 # ══════════════════════════════════════════════════════════
