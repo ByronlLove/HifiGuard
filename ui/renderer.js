@@ -23,6 +23,9 @@ const SESSION_MAX = 90000  // journée entière (~25h × 3600s/h, largement suff
 
 // Résolution pour le graphe calendrier (jour historique)
 let dayResolution = 0
+// Métrique affichée dans la vue mois du calendrier
+// oms | niosh | mean | median | peak | mean_z
+let calMetric = 'oms'
 // Résolution pour le graphe aujourd'hui
 // 0 = auto, sinon valeur fixe en secondes
 let todayResolution = 0
@@ -126,6 +129,100 @@ function dbColor(db) {
 // ══════════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════════
+async function init() {
+  config = await window.hifi.getConfig()
+  suivi  = await window.hifi.getSuivi()
+  suiviLastFetch = Date.now()
+
+  initChartToday()
+  initChartDay()
+
+  renderDoseBars(null)
+  await reloadTodayFromCSV()
+
+  const appLoader = document.getElementById('app-loader')
+  if (appLoader) { appLoader.classList.add('done'); setTimeout(() => appLoader.remove(), 350) }
+
+  startLivePoll()
+
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' && currentPage === 'today') {
+      e.preventDefault(); togglePause()
+    }
+  })
+}
+
+// ── Context menu ─────────────────────────────────────────────
+let ctxTarget = null  // { type: 'day'|'month', key: '2026-04' | '2026-04-12' }
+
+function showCtxMenu(e, type, key) {
+  e.preventDefault()
+  ctxTarget = { type, key }
+  const menu  = document.getElementById('ctx-menu')
+  const title = document.getElementById('ctx-title')
+  const delDay   = document.getElementById('ctx-delete-day')
+  const delMonth = document.getElementById('ctx-delete-month')
+
+  if (type === 'day') {
+    const [y,m,d] = key.split('-')
+    title.textContent = `${parseInt(d)} ${MONTHS[parseInt(m)-1]} ${y}`
+    delDay.style.display   = 'flex'
+    delMonth.style.display = 'none'
+  } else {
+    const [y,m] = key.split('-')
+    title.textContent = `${MONTHS[parseInt(m)-1]} ${y}`
+    delDay.style.display   = 'none'
+    delMonth.style.display = 'flex'
+  }
+
+  // Positionner le menu
+  const x = Math.min(e.clientX, window.innerWidth  - 200)
+  const y2 = Math.min(e.clientY, window.innerHeight - 120)
+  menu.style.left = x + 'px'
+  menu.style.top  = y2 + 'px'
+  menu.classList.add('visible')
+}
+
+function hideCtxMenu() {
+  document.getElementById('ctx-menu').classList.remove('visible')
+  ctxTarget = null
+}
+
+document.addEventListener('click',       hideCtxMenu)
+document.addEventListener('contextmenu', e => { if (!e.target.closest('#ctx-menu')) hideCtxMenu() })
+
+document.getElementById('ctx-delete-day').addEventListener('click', async () => {
+  if (!ctxTarget) return
+  const key = ctxTarget.key
+  if (!confirm(`Supprimer toutes les données du ${key} ?`)) return
+  const r = await window.hifi.deleteDayData(key)
+  if (r.ok) {
+    suivi = await window.hifi.getSuivi(); suiviLastFetch = Date.now()
+    if (calView === 'month') renderViewMonth()
+    else if (calView === 'year') renderViewYear()
+  }
+})
+
+document.getElementById('ctx-delete-month').addEventListener('click', async () => {
+  if (!ctxTarget) return
+  const [y, m] = ctxTarget.key.split('-')
+  if (!confirm(`Supprimer toutes les données de ${MONTHS[parseInt(m)-1]} ${y} ?`)) return
+  const r = await window.hifi.deleteMonthData(parseInt(y), parseInt(m))
+  if (r.ok) {
+    suivi = await window.hifi.getSuivi(); suiviLastFetch = Date.now()
+    renderViewYear()
+  }
+})
+
+// Boutons métrique calendrier
+document.querySelectorAll('.metric-btn').forEach(el => {
+  el.addEventListener('click', () => {
+    calMetric = el.dataset.metric
+    document.querySelectorAll('.metric-btn').forEach(b => b.classList.toggle('active', b.dataset.metric === calMetric))
+    if (calView === 'month') renderViewMonth()
+  })
+})
+
 async function init() {
   config = await window.hifi.getConfig()
   suivi  = await window.hifi.getSuivi()
@@ -740,19 +837,47 @@ function renderViewYear() {
   }).join('')
   document.querySelectorAll('.month-cell').forEach(el => {
     el.addEventListener('click', () => { calMonth = +el.dataset.month; animTransition(renderViewMonth) })
+    el.addEventListener('contextmenu', e => showCtxMenu(e, 'month', `${calYear}-${String(+el.dataset.month+1).padStart(2,'0')}`))
   })
 }
 
 function getMonthStats(year, month) {
-  let total = 0, days = 0
+  let totalOms = 0, totalNiosh = 0, days = 0
   const dim = new Date(year, month + 1, 0).getDate()
   for (let d = 1; d <= dim; d++) {
     const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-    if (suivi[key]) { total += suivi[key].dose_who_day_pct || 0; days++ }
+    if (suivi[key]) {
+      totalOms   += suivi[key].dose_who_day_pct || 0
+      totalNiosh += suivi[key].dose_niosh_pct   || 0
+      days++
+    }
   }
-  const avg   = days > 0 ? total / days : 0
+  const avg   = days > 0 ? totalOms / days : 0
   const color = avg > 80 ? 'var(--danger)' : avg > 50 ? 'var(--warn)' : avg > 20 ? '#84cc16' : 'var(--safe)'
   return { avgDose: avg, days, color }
+}
+
+// Retourne la valeur de la métrique choisie pour un jour donné
+function getDayMetricValue(key) {
+  const d = suivi[key]
+  if (!d) return null
+  switch (calMetric) {
+    case 'oms':    return d.dose_who_day_pct || 0
+    case 'niosh':  return d.dose_niosh_pct   || 0
+    case 'mean':   return d.mean_db_a        || null
+    case 'median': return d.median_db_a      || null
+    case 'peak':   return d.max_db_a         || null
+    case 'mean_z': return d.mean_db_z        || null
+    default:       return d.dose_who_day_pct || 0
+  }
+}
+
+function formatMetricValue(v) {
+  if (v === null || v === undefined) return ''
+  switch (calMetric) {
+    case 'oms': case 'niosh': return v.toFixed(0) + '%'
+    default: return v.toFixed(1) + ' dB'
+  }
 }
 
 function renderViewMonth() {
@@ -776,12 +901,17 @@ function renderViewMonth() {
       else if (dose > 20) { cls = 'ok';     dot = '#84cc16'       }
       else                { cls = 'safe';   dot = 'var(--safe)'   }
     }
+    const metricVal   = getDayMetricValue(key)
+    const metricStr   = metricVal !== null ? formatMetricValue(metricVal) : ''
     grid.innerHTML += `<div class="cal-day ${cls}${isToday?' today':''}" data-key="${key}" title="${key} — OMS/j: ${dose.toFixed(1)}%">
-      <div>${d}</div>${data ? `<div class="day-dot" style="background:${dot}"></div>` : ''}
+      <div>${d}</div>
+      ${data ? `<div class="day-dot" style="background:${dot}"></div>` : ''}
+      ${metricStr ? `<div class="day-metric">${metricStr}</div>` : ''}
     </div>`
   }
   grid.querySelectorAll('.cal-day:not(.empty):not(.nodata)').forEach(el => {
     el.addEventListener('click', () => { calDay = el.dataset.key; animTransition(() => renderViewDay(calDay)) })
+    el.addEventListener('contextmenu', e => showCtxMenu(e, 'day', el.dataset.key))
   })
 }
 
@@ -848,6 +978,11 @@ async function renderSettings() {
   renderRefreshModes()
   renderThresholds()
   document.getElementById('btn-export').onclick          = () => window.hifi.exportData()
+  document.getElementById('btn-purge-old').onclick       = async () => {
+    if (!confirm('Supprimer toutes les données de plus de 90 jours ? Cette action est irréversible.')) return
+    const r = await window.hifi.deleteOldData(90)
+    if (r.ok) { suivi = await window.hifi.getSuivi(); suiviLastFetch = Date.now(); alert('Données supprimées.') }
+  }
   document.getElementById('btn-restart').onclick         = () => window.hifi.restartDaemon()
   document.getElementById('btn-clear-form').onclick      = clearForm
   document.getElementById('btn-save-profile').onclick    = saveProfile
@@ -1011,5 +1146,15 @@ function formatDateFR(key) {
   const [y, m, d] = key.split('-')
   return `${parseInt(d)} ${MONTHS[parseInt(m)-1]} ${y}`
 }
+
+
+// Boutons métrique calendrier
+document.querySelectorAll('.metric-btn').forEach(el => {
+  el.addEventListener('click', () => {
+    calMetric = el.dataset.metric
+    document.querySelectorAll('.metric-btn').forEach(b => b.classList.toggle('active', b.dataset.metric === calMetric))
+    if (calView === 'month') renderViewMonth()
+  })
+})
 
 init()

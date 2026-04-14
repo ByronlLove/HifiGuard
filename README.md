@@ -1,4 +1,4 @@
-# 🎧 HifiGuard
+![](assets/icon%20banner.svg)
 
 **Dosimètre auditif personnel pour casques et écouteurs — Windows**
 

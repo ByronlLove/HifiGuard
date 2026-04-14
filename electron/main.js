@@ -322,6 +322,7 @@ async function exportData() {
 // FENÊTRE
 // ══════════════════════════════════════════════════════════
 function createWindow() {
+  const winIcon = path.join(__dirname, '..', 'assets', 'icon256.ico')
   mainWindow = new BrowserWindow({
     width:  1120,
     height: 760,
@@ -330,6 +331,7 @@ function createWindow() {
     frame: false,
     titleBarStyle: 'hidden',
     backgroundColor: '#0f1117',
+    icon: winIcon,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -434,6 +436,68 @@ ipcMain.handle('read-csv-range', async (_, dateFrom, dateTo, secondsPerBucket = 
 
 ipcMain.handle('export-data',    () => exportData())
 ipcMain.handle('restart-daemon', () => restartDaemon())
+
+// ── Suppression de données ────────────────────────────────
+ipcMain.handle('delete-day-data', async (_, dateKey) => {
+  // dateKey = "2026-04-12"
+  try {
+    // 1. Supprimer du suivi JSON
+    const suivi = readSuiviCached()
+    if (suivi[dateKey]) {
+      delete suivi[dateKey]
+      fs.writeFileSync(JSON_PATH, JSON.stringify(suivi, null, 2))
+      suiviCache = suivi
+      suiviCacheTime = Date.now()
+    }
+    // 2. Filtrer le CSV — réécrire sans les lignes du jour
+    if (fs.existsSync(CSV_PATH)) {
+      const prefix = dateKey + 'T'
+      const lines  = fs.readFileSync(CSV_PATH, 'utf8').split('\n')
+      const kept   = lines.filter((l, i) => i === 0 || !l.startsWith(prefix))
+      fs.writeFileSync(CSV_PATH, kept.join('\n'))
+    }
+    return { ok: true }
+  } catch (e) { return { ok: false, error: e.message } }
+})
+
+ipcMain.handle('delete-month-data', async (_, year, month) => {
+  // year = 2026, month = 4 (1-based)
+  try {
+    const prefix = `${year}-${String(month).padStart(2,'0')}`
+    // 1. Supprimer du suivi JSON
+    const suivi = readSuiviCached()
+    Object.keys(suivi).forEach(k => { if (k.startsWith(prefix)) delete suivi[k] })
+    fs.writeFileSync(JSON_PATH, JSON.stringify(suivi, null, 2))
+    suiviCache = suivi; suiviCacheTime = Date.now()
+    // 2. Filtrer le CSV
+    if (fs.existsSync(CSV_PATH)) {
+      const lines = fs.readFileSync(CSV_PATH, 'utf8').split('\n')
+      const kept  = lines.filter((l, i) => i === 0 || !l.startsWith(prefix))
+      fs.writeFileSync(CSV_PATH, kept.join('\n'))
+    }
+    return { ok: true }
+  } catch (e) { return { ok: false, error: e.message } }
+})
+
+ipcMain.handle('delete-old-data', async (_, keepDays) => {
+  try {
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - keepDays)
+    const cutoffStr = cutoff.toISOString().slice(0, 10)
+    // 1. Suivi JSON
+    const suivi = readSuiviCached()
+    Object.keys(suivi).forEach(k => { if (k < cutoffStr) delete suivi[k] })
+    fs.writeFileSync(JSON_PATH, JSON.stringify(suivi, null, 2))
+    suiviCache = suivi; suiviCacheTime = Date.now()
+    // 2. CSV
+    if (fs.existsSync(CSV_PATH)) {
+      const lines = fs.readFileSync(CSV_PATH, 'utf8').split('\n')
+      const kept  = lines.filter((l, i) => i === 0 || l.slice(0, 10) >= cutoffStr)
+      fs.writeFileSync(CSV_PATH, kept.join('\n'))
+    }
+    return { ok: true }
+  } catch (e) { return { ok: false, error: e.message } }
+})
 
 // ── Contrôles fenêtre ─────────────────────────────────────
 ipcMain.on('win-minimize', () => mainWindow && mainWindow.minimize())

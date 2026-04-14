@@ -231,6 +231,40 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 ::-webkit-scrollbar{width:5px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+/* Pendant le drag de fenêtre : désactiver toutes les transitions pour éviter le lag */
+body.dragging *{transition:none!important;animation:none!important;}
+body.dragging #main{pointer-events:none;}
+/* CONTEXT MENU */
+#ctx-menu{
+  position:fixed;z-index:9999;background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--radius);padding:4px 0;min-width:180px;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);display:none;
+}
+#ctx-menu.visible{display:block;}
+.ctx-item{
+  padding:8px 14px;font-size:13px;cursor:pointer;color:var(--text);
+  display:flex;align-items:center;gap:8px;transition:background 0.1s;
+}
+.ctx-item:hover{background:var(--bg3);}
+.ctx-item.danger{color:var(--danger);}
+.ctx-item.disabled{color:var(--muted);cursor:default;pointer-events:none;}
+.ctx-separator{height:1px;background:var(--border);margin:3px 0;}
+
+/* MÉTRIQUE SELECTOR dans vue mois */
+#month-metric-bar{
+  display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;
+}
+#month-metric-bar .metric-label{font-size:11px;color:var(--muted);margin-right:2px;}
+.metric-btn{
+  padding:3px 10px;font-size:11px;font-weight:600;border-radius:5px;cursor:pointer;
+  background:var(--bg3);border:1px solid var(--border);color:var(--muted);transition:all 0.15s;
+}
+.metric-btn:hover{border-color:var(--muted);color:var(--text);}
+.metric-btn.active{background:rgba(99,102,241,.15);border-color:var(--accent);color:var(--accent);}
+
+/* Stat secondaire dans les cases calendrier */
+.cal-day .day-metric{font-size:9px;color:var(--muted);margin-top:1px;line-height:1;}
+
 </style>
 </head>
 <body>
@@ -322,7 +356,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
         </div>
         <div id="calendar-view">
           <div id="view-year"></div>
-          <div id="view-month" class="card"><div class="cal-grid" id="cal-month-grid"></div></div>
+          <div id="view-month" class="card">
+  <div id="month-metric-bar">
+    <span class="metric-label">Afficher :</span>
+    <button class="metric-btn active" data-metric="oms">OMS/j %</button>
+    <button class="metric-btn" data-metric="niosh">NIOSH %</button>
+    <button class="metric-btn" data-metric="mean">Moy. dB(A)</button>
+    <button class="metric-btn" data-metric="median">Méd. dB(A)</button>
+    <button class="metric-btn" data-metric="peak">Pic dB(A)</button>
+    <button class="metric-btn" data-metric="mean_z">Moy. dB(Z)</button>
+  </div>
+  <div class="cal-grid" id="cal-month-grid"></div>
+</div>
           <div id="view-day">
             <div class="stat-grid" id="day-stats-grid" style="margin-bottom:12px;"></div>
             <div class="card">
@@ -413,12 +458,42 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
             <button class="btn btn-secondary" id="btn-export">⤓ Exporter</button>
             <button class="btn btn-danger" id="btn-restart">⟲ Relancer le daemon</button>
           </div>
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+            <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">
+              Vous pouvez aussi faire un <strong style="color:var(--text)">clic droit</strong> sur un jour ou un mois dans le calendrier pour supprimer ses données.
+            </p>
+            <div class="btn-row">
+              <button class="btn btn-danger" id="btn-purge-old">🗑 Supprimer données > 90 jours</button>
+            </div>
+          </div>
         </div>
       </div>
 
     </div>
   </div>
 </div>
+<div id="ctx-menu">
+  <div class="ctx-item disabled" id="ctx-title" style="font-weight:600;font-size:12px;color:var(--muted);cursor:default;"></div>
+  <div class="ctx-separator"></div>
+  <div class="ctx-item" id="ctx-delete-day">🗑 Supprimer ce jour</div>
+  <div class="ctx-item danger" id="ctx-delete-month">🗑 Supprimer tout le mois</div>
+</div>
+<script>
+// Désactiver les transitions pendant le drag de la fenêtre
+// pour éviter le lag causé par les repaints CSS
+;(function(){
+  const dragZones = ['titlebar-logo','titlebar-center']
+  dragZones.forEach(id => {
+    const el = document.getElementById(id)
+    if (!el) return
+    el.addEventListener('mousedown', () => {
+      document.body.classList.add('dragging')
+      const up = () => { document.body.classList.remove('dragging'); window.removeEventListener('mouseup', up) }
+      window.addEventListener('mouseup', up)
+    })
+  })
+})()
+</script>
 <script src="renderer.js"></script>
 </body>
 </html>
