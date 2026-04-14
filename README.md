@@ -210,6 +210,12 @@ No. The Python daemon is optimized to be extremely lightweight. Although it capt
 No. As explained in the *Limits and precision* section, Bluetooth headphones have their own internal amplifier and digital signal processor (DSP). Windows does not send an electrical signal to them, but rather digital data. HifiGuard therefore cannot apply its voltage and impedance calculations.
 
 
+## Road map
+
+- [ ] **Frequency Response Compensation:** Integration of specific frequency response curves for each headphone or earphone for an even more precise SPL calculation.
+- [ ] **Visual Themes:** Support for "Ghost" and "Transparent" UI modes.
+
+
 ## Licence
 
 AGPL-3.0 — see [LICENSE](LICENSE)
