@@ -116,11 +116,11 @@ def compute_max_spl(profile):
     elif unit == 'mV/Pa':
         # Conversion mV/Pa → dB/mW :
         # dB/mW = 20·log10(mV/Pa / 1000) + 10·log10(1000/imp) + 120
-        sens_dbmw = 20*np.log10(raw/1000) + 10*np.log10(1000/imp) + 120
+        sens_dbmw = 124 - 20*np.log10(raw) + 10*np.log10(imp)
     elif unit == 'dB/V':
         # dB/V = dB/mW + 10·log10(imp/1000)
         # → dB/mW = dB/V - 10·log10(imp/1000)
-        sens_dbmw = raw - 10*np.log10(imp/1000)
+        sens_dbmw = raw - 10*np.log10(1000/imp)
     else:
         sens_dbmw = raw
 

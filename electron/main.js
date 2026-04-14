@@ -10,8 +10,14 @@ const STATE_PATH  = path.join(DATA_DIR, 'state.json')
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json')
 const JSON_PATH   = path.join(DATA_DIR, 'suivi_audio.json')
 const CSV_PATH    = path.join(DATA_DIR, 'historique.csv')
-const DAEMON_PATH = path.join(__dirname, '..', 'daemon', 'hifiguard.py')
-const PYTHON_CMD  = 'python'
+// En production (electron-builder), le daemon est compilé en .exe via PyInstaller
+// et placé dans resources/daemon/hifiguard.exe
+// En développement, on lance le .py directement avec python
+const IS_PROD     = app.isPackaged
+const DAEMON_PATH = IS_PROD
+  ? path.join(process.resourcesPath, 'daemon', 'hifiguard.exe')
+  : path.join(__dirname, '..', 'daemon', 'hifiguard.py')
+const PYTHON_CMD  = IS_PROD ? null : 'python'
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
 
@@ -66,10 +72,10 @@ function readSuiviCached() {
 function startDaemon() {
   if (daemonProcess) return
   console.log('[Daemon] Démarrage...')
-  daemonProcess = spawn(PYTHON_CMD, ['-X', 'utf8', DAEMON_PATH], {
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe']
-  })
+  const spawnArgs = IS_PROD
+    ? [DAEMON_PATH, [], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }]
+    : [PYTHON_CMD, ['-X', 'utf8', DAEMON_PATH], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }]
+  daemonProcess = spawn(...spawnArgs)
   daemonProcess.stdout.on('data', d => process.stdout.write('[D] ' + d.toString()))
   daemonProcess.stderr.on('data', d => process.stderr.write('[D ERR] ' + d.toString()))
   daemonProcess.on('exit', code => {
@@ -381,8 +387,9 @@ function doPoll() {
   // Tray géré avec son propre throttle dans updateTray()
   updateTray(state, now)
 
-  // Renderer : IPC uniquement si state a réellement changé
-  if (mainWindow && !mainWindow.isDestroyed() && windowVisible) {
+  // state-update : toujours envoyé si la fenêtre existe (visible ou non)
+  // Le renderer gère lui-même ce qu'il affiche selon la page active
+  if (mainWindow && !mainWindow.isDestroyed()) {
     const fingerprint = `${state.ts}|${state.db_a}`
     if (fingerprint !== lastStateSent) {
       lastStateSent = fingerprint

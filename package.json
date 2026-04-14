@@ -1,11 +1,12 @@
 {
   "name": "hifiguard",
   "version": "1.0.0",
-  "description": "Dosimètre auditif personnel",
+  "description": "Dosimètre auditif personnel pour casques et écouteurs",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "build:daemon": "pyinstaller --onefile --noconsole --name hifiguard --distpath daemon/dist daemon/hifiguard.py"
   },
   "dependencies": {
     "chart.js": "^4.4.0"
@@ -17,13 +18,51 @@
   "build": {
     "appId": "com.hifiguard.app",
     "productName": "HifiGuard",
+    "copyright": "Copyright © 2026",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "ui/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "daemon/dist/hifiguard.exe",
+        "to": "daemon/hifiguard.exe"
+      },
+      {
+        "from": "assets/",
+        "to": "assets/"
+      }
+    ],
     "win": {
-      "target": "nsis",
-      "icon": "assets/icon.ico"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon256.ico"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "assets/icon256.ico",
+      "uninstallerIcon": "assets/icon256.ico",
+      "installerHeaderIcon": "assets/icon256.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "HifiGuard"
+    },
+    "portable": {
+      "artifactName": "HifiGuard-${version}-portable.exe"
     }
   }
 }

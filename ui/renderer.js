@@ -16,6 +16,9 @@ let isPaused = false
 
 // Données session courante (points live)
 let sessionData = { labels: [], dba: [], niosh: [], omsj: [], lastTs: null }
+// Accumulateur pour le bucket en cours (respecte todayResolution)
+// maxDb = pic du bucket, lastFlush = timestamp du dernier point écrit
+let sessionBucket = { maxDba: 0, lastFlush: null }
 const SESSION_MAX = 90000  // journée entière (~25h × 3600s/h, largement suffisant)
 
 // Résolution pour le graphe calendrier (jour historique)
@@ -26,7 +29,7 @@ let todayResolution = 0
 
 // Buffer haute précision : 10 dernières minutes à ~1pt/s, gardé en RAM
 // Utilisé pour le double-clic "10 dernières min" avec toute la précision
-const HIRES_MAX = 600   // 10 min × 60s
+const HIRES_MAX = 2400  // 1 min × (1000ms/25ms) = 2400 pts à 25ms/pt
 let hiresBuffer = { labels: [], dba: [], niosh: [], omsj: [], lastTs: null }
 
 const COLORS = { dba:'#6366f1', niosh:'#f97316', omsj:'#22c55e', dbz:'#475569' }
@@ -164,11 +167,12 @@ async function init() {
 let livePollInterval = null
 
 function startLivePoll() {
-  // Fallback poll 1s — très léger car get-state renvoie lastState en mémoire
+  // Le push IPC state-update arrive maintenant même fenêtre cachée.
+  // Fallback poll 1s en secours au cas où le push IPC rate (redémarrage daemon, etc.)
   livePollInterval = setInterval(async () => {
-    if (document.hidden || isPaused) return
+    if (isPaused || !document.hidden) return   // si visible, le push s'en charge
     const state = await window.hifi.getState()
-    if (state) handleLiveState(state)
+    if (state) feedHiresBuffer(state)   // en tray : juste le buffer, pas le DOM
   }, 1000)
 }
 
@@ -178,10 +182,15 @@ window.hifi.onStateUpdate(state => {
 })
 
 function handleLiveState(state) {
-  updateLive(state)
-  updateTitlebar(state)
-  if (currentPage === 'today' && !isPaused) {
-    appendTodayPoint(state)   // marque chartTodayDirty, ne fait pas update()
+  // hiresBuffer : toujours, que la fenêtre soit visible ou non
+  feedHiresBuffer(state)
+  // DOM : seulement si la fenêtre est au premier plan
+  if (!document.hidden) {
+    updateLive(state)
+    updateTitlebar(state)
+    if (currentPage === 'today' && !isPaused) {
+      appendTodayPoint(state)
+    }
   }
 }
 
@@ -336,7 +345,21 @@ function initChartToday() {
       }
     }
   })
-  document.getElementById('chart-today').addEventListener('dblclick', () => zoomToLast10Min(chartToday))
+  document.getElementById('chart-today').addEventListener('dblclick', () => {
+  if (hiresMode) {
+    // Deuxième double-clic : quitter le mode hires, revenir à la journée
+    hiresMode  = false
+    followMode = false
+    chartToday.data.labels           = [...sessionData.labels]
+    chartToday.data.datasets[0].data = [...sessionData.dba]
+    chartToday.data.datasets[1].data = [...sessionData.niosh]
+    chartToday.data.datasets[2].data = [...sessionData.omsj]
+    chartToday.resetZoom()
+    chartTodayDirty = true
+  } else {
+    zoomToLast10Min(chartToday)
+  }
+})
   buildLegend('legend-today', chartToday, datasets)
 }
 
@@ -391,20 +414,40 @@ function appendTodayPoint(state) {
   // On parse manuellement pour forcer l'interprétation en heure locale.
   const nowTs  = state.ts || new Date().toISOString()
   const label  = nowTs.slice(11, 19)
+  const nowMs  = localIsoToMs(nowTs)
+
+  // Accumuler le max dans le bucket en cours
+  if (state.db_a > 0) sessionBucket.maxDba = Math.max(sessionBucket.maxDba, state.db_a)
+
+  // Intervalle d'écriture selon todayResolution
+  // todayResolution=0 → 1s (même résolution que le CSV)
+  const flushIntervalMs = (todayResolution > 0 ? todayResolution : 1) * 1000
+
+  const lastFlush = sessionBucket.lastFlush
+  const elapsedMs = lastFlush ? (nowMs - localIsoToMs(lastFlush)) : flushIntervalMs
+
+  // Flush seulement si l'intervalle est écoulé
+  if (elapsedMs < flushIntervalMs) return
+
+  // Détecter un gap (pause, redémarrage)
   const lastTs = sessionData.lastTs
   if (lastTs) {
     const gapMs = localIsoToMs(nowTs) - localIsoToMs(lastTs)
-    if (gapMs > 3000 || gapMs < 0) {   // gapMs < 0 = données hors ordre (redémarrage daemon)
+    if (gapMs > flushIntervalMs * 2 || gapMs < 0) {
       sessionData.labels.push(null); sessionData.dba.push(null)
       sessionData.niosh.push(null);  sessionData.omsj.push(null)
     }
   }
-  sessionData.lastTs = nowTs
+  sessionData.lastTs     = nowTs
+  sessionBucket.lastFlush = nowTs
 
   sessionData.labels.push(label)
-  sessionData.dba.push(state.db_a > 0 ? state.db_a : 0)   // 0 = silence tracé
+  sessionData.dba.push(sessionBucket.maxDba > 0 ? sessionBucket.maxDba : 0)
   sessionData.niosh.push(d.dose_niosh_pct  || null)
   sessionData.omsj.push(d.dose_who_day_pct || null)
+
+  // Reset bucket
+  sessionBucket.maxDba = 0
 
   if (sessionData.labels.length > SESSION_MAX) {
     const trim = sessionData.labels.length - SESSION_MAX
@@ -424,7 +467,16 @@ function appendTodayPoint(state) {
     chartTodayDirty = true
   }
 
-  // Alimenter aussi le buffer haute précision (10 min, toujours 1pt/s)
+}
+
+// Alimente le hiresBuffer en permanence — appelé pour chaque state reçu
+// indépendamment de la page visible ou du mode tray
+function feedHiresBuffer(state) {
+  const today  = new Date().toISOString().slice(0, 10)
+  const d      = suivi[today] || {}
+  const nowTs  = state.ts || new Date().toISOString()
+  const label  = nowTs.slice(11, 19)
+
   const lastHiTs = hiresBuffer.lastTs
   if (lastHiTs) {
     const gapHi = localIsoToMs(nowTs) - localIsoToMs(lastHiTs)
@@ -443,6 +495,8 @@ function appendTodayPoint(state) {
     hiresBuffer.labels.splice(0,t); hiresBuffer.dba.splice(0,t)
     hiresBuffer.niosh.splice(0,t);  hiresBuffer.omsj.splice(0,t)
   }
+  // Si on est en hiresMode, marquer le chart dirty pour la RAF loop
+  if (hiresMode && chartToday) chartTodayDirty = true
 }
 
 function zoomToLast10Min(chart) {
@@ -629,6 +683,7 @@ function setDayResolution(spb) {
 
 function setTodayResolution(spb) {
   todayResolution = spb
+  sessionBucket = { maxDba: 0, lastFlush: null }   // reset bucket au changement de résolution
   document.querySelectorAll('#page-today .res-btn').forEach(el => {
     el.classList.toggle('active', +el.dataset.spb === spb)
   })
@@ -839,8 +894,8 @@ function renderProfileList() {
 function computeMaxSpl(raw, unit, imp, vout) {
   let sensMw
   if (unit==='dB/mW')      sensMw = raw
-  else if (unit==='mV/Pa') sensMw = 20*Math.log10(raw/1000)+10*Math.log10(1000/imp)+120
-  else if (unit==='dB/V')  sensMw = raw-10*Math.log10(imp/1000)
+  else if (unit==='mV/Pa') sensMw = 124 - 20*Math.log10(raw) + 10*Math.log10(imp)
+  else if (unit==='dB/V')  sensMw = raw - 10*Math.log10(1000/imp)
   else sensMw = raw
   return sensMw + 10*Math.log10(((vout**2)/imp)*1000)
 }
