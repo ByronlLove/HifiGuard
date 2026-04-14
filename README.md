@@ -157,6 +157,8 @@ The calculation relies on the Windows audio architecture. Certain hardware or so
 ### Run in development mode
 
 ```bash
+git clone https://github.com/ByronlLove/HifiGuard.git
+
 # Install Node dependencies
 npm install
 
@@ -172,6 +174,8 @@ Press **F12** to open the DevTools console.
 ### Build (installer + portable)
 
 ```bash
+git clone https://github.com/ByronlLove/HifiGuard.git
+
 # Windows — double-click build.bat
 # or from the command line:
 
