@@ -2,6 +2,8 @@
 
 **Personal hearing dosimeter for headphones and earphones — Windows**
 
+*Read this in other languages: [Français](README_FR.md).*
+
 HifiGuard is a hearing dosimeter for Windows, built on Electron and Python, designed to monitor sound exposure when using headphones or earphones. The application intercepts the digital audio stream from the system via the WASAPI loopback interface and calculates, based on the hardware's electrical specifications, the theoretical sound pressure level (SPL) received at the ear.
 
 The analysis engine applies A-weighting frequency filtering (IEC 61672-1 standard) to reflect the sensitivity of human hearing. It quantifies daily and weekly exposure against the NIOSH and WHO/ITU H.870 reference standards.
@@ -10,7 +12,7 @@ HifiGuard is natively compatible with system equalisation solutions such as [Equ
 
 > **Warning:** HifiGuard is a software estimation tool, not a certified hardware sound level meter. The results it provides are upper-bound approximations intended for personal prevention and cannot replace an acoustic measurement performed with a certified IEC 61672 instrument. For regulatory measurement, use an approved acoustic sound level meter.
 
------
+---
 
 ## Interface overview
 
@@ -27,13 +29,14 @@ HifiGuard is natively compatible with system equalisation solutions such as [Equ
   <img src="assets/screenshots/tray.png" alt="System tray">
 </p>
 
+---
 
 ## Features
 
 - Real-time measurement of sound exposure in dB(A) and dB(Z)
 - NIOSH and WHO/ITU H.870 dose tracking, daily and weekly
 - Today graph with adjustable resolution (Auto / 10s / 1 min / 5 min)
-- Double-click on the graph: last minute in high precision (measurements every 25 ms), updated continuously in the background even when minimised to tray
+- Double-click on the graph: last 10 minutes in high precision (measurements every 25 ms), updated continuously in the background even when minimised to tray
 - Follow mode: when zoomed in and anchored to the right edge, the curve advances in real time
 - Historical calendar: year → month → day view with curves, statistics, average and median
 - Configurable secondary metric in the month view (WHO %, NIOSH %, average dB(A), median dB(A), peak dB(A), average dB(Z))
@@ -45,13 +48,14 @@ HifiGuard is natively compatible with system equalisation solutions such as [Equ
 - Launch at Windows startup
 - French and English interface
 
+---
 
 ## Installation
 
-| Version   | File                           | Requirements             |
-|-----------|--------------------------------|--------------------------|
-| Installer | `HifiGuard Setup x.x.x.exe`    | None — Python is bundled |
-| Portable  | `HifiGuard-x.x.x-portable.exe` | None — Python is bundled |
+| Version | File | Requirements |
+|---------|------|--------------|
+| Installer | `HifiGuard Setup x.x.x.exe` | None — Python is bundled |
+| Portable | `HifiGuard-x.x.x-portable.exe` | None — Python is bundled |
 
 Download the latest release from the [Releases](../../releases) page.
 
@@ -62,15 +66,16 @@ Download the latest release from the [Releases](../../releases) page.
 3. Go to **Settings** and create a hardware profile for your headphones (see below).
 4. The daemon starts automatically. The tray icon turns green when audio is detected.
 
+---
 
 ## Hardware profile configuration
 
 HifiGuard requires the electrical characteristics of your headphones to calculate the actual SPL received at the ear. These values are found in the manufacturer's datasheet or on independent measurement sites ([Rtings.com](https://www.rtings.com), [Oratory1990](https://www.reddit.com/r/oratory1990/wiki/index/), [Crinacle](https://crinacle.com)).
 
-| Parameter                     | Description                                          | Example    |
-|-------------------------------|------------------------------------------------------|------------|
-| **Sensitivity**               | In dB/mW, mV/Pa, or dB/V, as listed on the datasheet | `96 dB/mW` |
-| **Impedance**                 | In Ohms (Ω)                                          | `32 Ω`     |
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| **Sensitivity** | In dB/mW, mV/Pa, or dB/V, as listed on the datasheet | `96 dB/mW` |
+| **Impedance** | In Ohms (Ω) | `32 Ω` |
 | **DAC output voltage (Vout)** | RMS output voltage of your source (DAC / sound card) | `1.2 Vrms` |
 
 The Vout of your DAC or sound card is found in its technical specifications. For a standard integrated sound card, a value of 1.0–1.5 Vrms is typical.
@@ -89,6 +94,7 @@ mV/Pa  →  dB/mW :  124 − 20 × log10(raw) + 10 × log10(Ω)
 dB/V   →  dB/mW :  raw − 10 × log10(1000 / Ω)
 ```
 
+---
 
 ## Project structure
 
@@ -115,6 +121,7 @@ HifiGuard/
 └── package.json
 ```
 
+---
 
 ## Limits and precision
 
@@ -128,21 +135,23 @@ The calculation relies on the Windows audio architecture. Certain hardware or so
 
 - **Active headphones (internal DSP):** Bluetooth or USB headphones that apply their own correction profile internally may have a real output level that differs from the theoretical electrical calculation. The signal is processed inside the headphone (which has its own DAC, amplifier, and often an independent volume control). The software has no way to read the voltage of that internal amplifier or measure the impact of its digital processor on the final sound.
 
+---
 
 ## Technical specifications
 
-| Component            | Detail                                                                       |
-|----------------------|------------------------------------------------------------------------------|
-| Audio capture        | WASAPI loopback via `soundcard`                                              |
-| Frequency weighting  | A-weighting, IEC 61672-1, implemented as IIR filter via `scipy.signal`       |
-| Measurement interval | 25 ms audio block (configurable)                                             |
-| CSV logging          | 1 line per second (peak of the elapsed second)                               |
-| NIOSH standard       | 85 dB(A) criterion level, 8h criterion time, 3 dB exchange rate (NIOSH 1998) |
-| WHO standard         | 80 dB(A), 342 min/day, 40h/week — ITU-T H.870                                |
-| Interface            | Electron 28, Chart.js 4.4, chartjs-plugin-zoom                               |
-| Daemon               | Python 3.10+, NumPy, SciPy, soundcard, pycaw                                 |
-| Platform             | Windows 10 / 11 (x64)                                                        |
+| Component | Detail |
+|-----------|--------|
+| Audio capture | WASAPI loopback via `soundcard` |
+| Frequency weighting | A-weighting, IEC 61672-1, implemented as IIR filter via `scipy.signal` |
+| Measurement interval | 25 ms audio block (configurable) |
+| CSV logging | 1 line per second (peak of the elapsed second) |
+| NIOSH standard | 85 dB(A) criterion level, 8h criterion time, 3 dB exchange rate (NIOSH 1998) |
+| WHO standard | 80 dB(A), 342 min/day, 40h/week — ITU-T H.870 |
+| Interface | Electron 28, Chart.js 4.4, chartjs-plugin-zoom |
+| Daemon | Python 3.10+, NumPy, SciPy, soundcard, pycaw |
+| Platform | Windows 10 / 11 (x64) |
 
+---
 
 ## Development
 
@@ -186,6 +195,7 @@ Output files are in `dist/`.
 
 The portable executable produced by `build.bat` (`HifiGuard-x.x.x-portable.exe`) requires no installation. It can be run directly from any location. User data is stored in `%APPDATA%\HifiGuard\data\` by default.
 
+---
 
 ## Frequently Asked Questions (FAQ)
 
@@ -207,11 +217,11 @@ No. The Python daemon is optimized to be extremely lightweight. Although it capt
 **Does HifiGuard work with my wireless Bluetooth headphones?**
 No. As explained in the *Limits and precision* section, Bluetooth headphones have their own internal amplifier and digital signal processor (DSP). Windows does not send an electrical signal to them, but rather digital data. HifiGuard therefore cannot apply its voltage and impedance calculations.
 
-
 ## Licence
 
 AGPL-3.0 — see [LICENSE](LICENSE)
 
+---
 
 ## Disclaimer
 

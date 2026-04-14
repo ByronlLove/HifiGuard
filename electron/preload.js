@@ -19,4 +19,6 @@ contextBridge.exposeInMainWorld('hifi', {
   deleteDayData:   (dateKey)                 => ipcRenderer.invoke('delete-day-data', dateKey),
   deleteMonthData: (year, month)             => ipcRenderer.invoke('delete-month-data', year, month),
   deleteOldData:   (keepDays)                => ipcRenderer.invoke('delete-old-data', keepDays),
+  getLocale:       ()                          => ipcRenderer.invoke('get-locale'),
+  setLanguage:     (lang)                      => ipcRenderer.invoke('set-language', lang),
 })

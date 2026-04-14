@@ -231,6 +231,23 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 ::-webkit-scrollbar{width:5px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+/* LANGUAGE SETUP OVERLAY */
+#lang-setup{
+  position:fixed;inset:0;background:var(--bg);z-index:20000;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;
+  transition:opacity .3s;
+}
+#lang-setup.done{opacity:0;pointer-events:none;}
+#lang-setup .setup-logo{font-size:28px;font-weight:700;color:var(--accent);letter-spacing:1px;}
+#lang-setup .setup-sub{font-size:14px;color:var(--muted);}
+#lang-setup .lang-btns{display:flex;gap:14px;}
+.lang-btn{
+  padding:12px 32px;border-radius:var(--radius);border:2px solid var(--border);
+  background:var(--bg3);color:var(--text);font-size:15px;font-weight:600;cursor:pointer;
+  transition:all .15s;
+}
+.lang-btn:hover{border-color:var(--accent);background:rgba(99,102,241,.1);color:var(--accent);}
+
 /* MODAL CONFIRM custom */
 #modal-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;
@@ -364,7 +381,7 @@ body.dragging #main{pointer-events:none;}
             <button class="res-btn"        data-spb="60"  onclick="setTodayResolution(60)">1 min</button>
             <button class="res-btn"        data-spb="300" onclick="setTodayResolution(300)">5 min</button>
           </div>
-          <div class="chart-hint">🖱 Molette = zoom · Clic+glisser = déplacer · Double-clic = les 10 dernières min (haute précision)</div>
+          <div class="chart-hint">🖱 Molette = zoom · Clic+glisser = déplacer · Double-clic = la dernière min (haute précision)</div>
           <div class="chart-legend" id="legend-today"></div>
         </div>
       </div>
@@ -497,6 +514,14 @@ body.dragging #main{pointer-events:none;}
     </div>
   </div>
 </div>
+<div id="lang-setup">
+  <div class="setup-logo">〣 HifiGuard</div>
+  <div class="setup-sub" id="setup-sub">Choose your language / Choisissez votre langue</div>
+  <div class="lang-btns">
+    <button class="lang-btn" data-lang="en">English</button>
+    <button class="lang-btn" data-lang="fr">Français</button>
+  </div>
+</div>
 <div id="modal-overlay">
   <div id="modal-box">
     <div id="modal-title"></div>
@@ -525,6 +550,25 @@ body.dragging #main{pointer-events:none;}
       document.body.classList.add('dragging')
       const up = () => { document.body.classList.remove('dragging'); window.removeEventListener('mouseup', up) }
       window.addEventListener('mouseup', up)
+    })
+  })
+})()
+</script>
+<script>
+;(function() {
+  // Vérifier si une langue est déjà configurée via l'API hifi
+  // Si oui, skip le setup. Si non, afficher le choix.
+  // On utilise un attribut data sur body pour signaler au renderer
+  // que le setup doit être vérifié.
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const lang = btn.dataset.lang
+      if (window.hifi) await window.hifi.setLanguage(lang)
+      const el = document.getElementById('lang-setup')
+      el.classList.add('done')
+      setTimeout(() => el.remove(), 350)
+      // Recharger l'interface avec la nouvelle locale
+      // Le renderer se charge de ça via init() qui lit la locale
     })
   })
 })()

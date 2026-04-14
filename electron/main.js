@@ -2,6 +2,9 @@ const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, dialog } = 
 const path     = require('path')
 const fs       = require('fs')
 const readline = require('readline')
+const LOCALES_DIR = app.isPackaged
+  ? path.join(process.resourcesPath, '..', 'locales')
+  : path.join(__dirname, '..', 'locales')
 const { spawn, execSync } = require('child_process')
 
 // ── Chemins ────────────────────────────────────────────────
@@ -342,6 +345,12 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '..', 'ui', 'index.html'))
   mainWindow.once('ready-to-show', () => { mainWindow.show(); windowVisible = true; adaptPolling(true) })
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12') {
+      if (mainWindow.webContents.isDevToolsOpened()) mainWindow.webContents.closeDevTools()
+      else mainWindow.webContents.openDevTools({ mode: 'detach' })
+    }
+  })
   mainWindow.on('focus',  () => { windowVisible = true;  adaptPolling(true)  })
   mainWindow.on('blur',   () => { windowVisible = false; adaptPolling(false) })
   mainWindow.on('close',  e  => { e.preventDefault(); mainWindow.hide(); windowVisible = false; adaptPolling(false) })
@@ -432,6 +441,25 @@ ipcMain.handle('read-csv-range', async (_, dateFrom, dateTo, secondsPerBucket = 
     console.error('[CSV] Erreur lecture:', err.message)
     return { rows: [], stats: null }
   }
+})
+
+ipcMain.handle('get-locale', () => {
+  const cfg  = readConfig()
+  const lang = (cfg && cfg.language) || 'en'
+  try {
+    const p = path.join(LOCALES_DIR, lang + '.json')
+    return JSON.parse(require('fs').readFileSync(p, 'utf8'))
+  } catch {
+    const p = path.join(LOCALES_DIR, 'en.json')
+    return JSON.parse(require('fs').readFileSync(p, 'utf8'))
+  }
+})
+
+ipcMain.handle('set-language', async (_, lang) => {
+  const cfg = readConfig() || {}
+  cfg.language = lang
+  require('fs').writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2))
+  return true
 })
 
 ipcMain.handle('export-data',    () => exportData())

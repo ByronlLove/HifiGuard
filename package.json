@@ -1,7 +1,7 @@
 {
   "name": "hifiguard",
   "version": "1.0.0",
-  "description": "Dosimètre auditif personnel pour casques et écouteurs",
+  "description": "Dosim\u00e8tre auditif personnel pour casques et \u00e9couteurs",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
@@ -18,7 +18,7 @@
   "build": {
     "appId": "com.hifiguard.app",
     "productName": "HifiGuard",
-    "copyright": "Copyright © 2026",
+    "copyright": "Copyright \u00a9 2026",
     "directories": {
       "output": "dist"
     },
@@ -36,17 +36,25 @@
       {
         "from": "assets/",
         "to": "assets/"
+      },
+      {
+        "from": "locales/",
+        "to": "../locales/"
       }
     ],
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "assets/icon256.ico"

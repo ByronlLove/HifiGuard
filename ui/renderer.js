@@ -8,6 +8,7 @@ Chart.register(ChartZoom)
 
 // ── État ─────────────────────────────────────────────────
 let currentPage = 'today'
+let L = {}  // locale strings
 let calView = 'year', calYear = new Date().getFullYear()
 let calMonth = new Date().getMonth(), calDay = null
 let config = null, suivi = {}
@@ -36,8 +37,9 @@ const HIRES_MAX = 2400  // 1 min × (1000ms/25ms) = 2400 pts à 25ms/pt
 let hiresBuffer = { labels: [], dba: [], niosh: [], omsj: [], lastTs: null }
 
 const COLORS = { dba:'#6366f1', niosh:'#f97316', omsj:'#22c55e', dbz:'#475569' }
-const MONTHS  = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
-const DAYS    = ['L','M','M','J','V','S','D']
+// MONTHS et DAYS sont définis depuis la locale dans init()
+let MONTHS = []
+let DAYS   = []
 
 // ── Boucle RAF séparée du live ────────────────────────────
 // Le chart ne redessine que si des données ont changé,
@@ -130,7 +132,15 @@ function dbColor(db) {
 // INIT
 // ══════════════════════════════════════════════════════════
 async function init() {
+  L      = await window.hifi.getLocale()
+  MONTHS = L.months || []
+  DAYS   = L.days   || []
   config = await window.hifi.getConfig()
+  // Si une langue est déjà configurée, masquer immédiatement le setup overlay
+  if (config && config.language) {
+    const setupEl = document.getElementById('lang-setup')
+    if (setupEl) { setupEl.classList.add('done'); setTimeout(() => setupEl.remove(), 10) }
+  }
   suivi  = await window.hifi.getSuivi()
   suiviLastFetch = Date.now()
 
@@ -263,7 +273,15 @@ document.querySelectorAll('.metric-btn').forEach(el => {
 })
 
 async function init() {
+  L      = await window.hifi.getLocale()
+  MONTHS = L.months || []
+  DAYS   = L.days   || []
   config = await window.hifi.getConfig()
+  // Si une langue est déjà configurée, masquer immédiatement le setup overlay
+  if (config && config.language) {
+    const setupEl = document.getElementById('lang-setup')
+    if (setupEl) { setupEl.classList.add('done'); setTimeout(() => setupEl.remove(), 10) }
+  }
   suivi  = await window.hifi.getSuivi()
   suiviLastFetch = Date.now()
 
@@ -788,9 +806,9 @@ function renderDayStats(stats) {
   }
   if (!stats) { el.innerHTML = ''; return }
   el.innerHTML = `
-    <span>Moyenne : <strong style="color:#6366f1">${stats.mean} dB(A)</strong></span>
-    <span>Médiane : <strong style="color:#f97316">${stats.median} dB(A)</strong></span>
-    <span style="opacity:0.6">${stats.count} mesures avec son</span>
+    <span>${L.mean_label||'Average'} : <strong style="color:#6366f1">${stats.mean} dB(A)</strong></span>
+    <span>${L.median_label||'Median'} : <strong style="color:#f97316">${stats.median} dB(A)</strong></span>
+    <span style="opacity:0.6">${stats.count} ${L.measures_with_sound||'measurements with sound'}</span>
   `
 }
 
@@ -1056,11 +1074,26 @@ function renderProfileList() {
       <div class="profile-specs">${p.sensitivity} ${unit} · ${p.impedance}Ω · ${p.dac_vout}Vrms → MAX SPL: ${maxSpl.toFixed(1)} dB</div>
     </div>
     <div style="display:flex;gap:7px;align-items:center;flex-shrink:0;">
-      ${isActive ? '<span class="profile-badge">Actif</span>' : `<button class="btn btn-secondary" style="font-size:11px" data-activate="${name}">Activer</button>`}
-      <button class="btn btn-secondary" style="font-size:11px" data-edit="${name}">Modifier</button>
+      ${isActive ? `<span class="profile-badge">${L.profile_active||'Active'}</span>` : `<button class="btn btn-secondary" style="font-size:11px" data-activate="${name}">${L.profile_activate||'Activate'}</button>`}
+      <button class="btn btn-secondary" style="font-size:11px" data-edit="${name}">${L.profile_edit||'Edit'}</button>
+      ${!isActive ? `<button class="btn btn-danger" style="font-size:11px" data-delete="${name}">${L.profile_delete||'Delete'}</button>` : ''}
     </div>`
     const ab = item.querySelector('[data-activate]')
     if (ab) ab.addEventListener('click', async () => { config.active_profile = name; await window.hifi.saveConfig(config); renderProfileList() })
+    const db = item.querySelector('[data-delete]')
+    if (db) db.addEventListener('click', () => {
+      const pname = db.dataset.delete
+      showConfirm(
+        `${L.profile_delete||'Delete'} "${pname}"?`,
+        '',
+        async () => {
+          config = await window.hifi.getConfig()
+          delete config.profiles[pname]
+          await window.hifi.saveConfig(config)
+          renderProfileList()
+        }
+      )
+    })
     item.querySelector('[data-edit]').addEventListener('click', () => {
       document.getElementById('f-name').value      = name
       document.getElementById('f-sens').value      = p.sensitivity
@@ -1100,7 +1133,7 @@ async function saveProfile() {
   const imp  = parseFloat(document.getElementById('f-imp').value)
   const vout = parseFloat(document.getElementById('f-vout').value)
   const desc = document.getElementById('f-desc').value.trim()
-  if (!name || !sens || !imp || !vout) return alert('Remplis tous les champs obligatoires.')
+  if (!name || !sens || !imp || !vout) { showToast('Please fill all required fields.'); return }
   config = await window.hifi.getConfig()
   config.profiles[name] = { sensitivity:sens, sensitivity_unit:unit, impedance:imp, dac_vout:vout, description:desc }
   await window.hifi.saveConfig(config)
