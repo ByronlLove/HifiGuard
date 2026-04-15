@@ -228,7 +228,7 @@ Non. Comme expliqué dans la section *Limites et précision*, les casques Blueto
 définition des modèles de calcul dosimétrique, conception de l'expérience utilisateur (UI/UX), 
 tests (QA) et déploiement.
 
-Code source implémenté avec l'assistance de Claude (Anthropic).
+Code source et traduction implémenté avec l'assistance de Claude (Anthropic).
 
 
 ## Licence
