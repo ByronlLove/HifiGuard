@@ -228,7 +228,7 @@ testing (QA), and deployment.
 
 Source code and translations implemented with the assistance of Claude (Anthropic).
 
-## Licence
+## License
 
 AGPL-3.0 — see [LICENSE](LICENSE)
 
