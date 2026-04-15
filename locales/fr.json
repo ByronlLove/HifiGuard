@@ -115,5 +115,21 @@
   "setup_en": "English",
   "setup_fr": "Français",
   "setup_continue": "Continuer",
-  "fill_required": "Veuillez remplir tous les champs avec des nombres valides."
+  "fill_required": "Veuillez remplir tous les champs avec des nombres valides.",
+  "btn_save": "Sauvegarder",
+  "btn_clear": "Effacer",
+  "btn_apply": "Appliquer",
+  "refresh_free": "Choix libre",
+  "settings_colors": "Couleurs icône — seuils dB(A)",
+  "colors_hint": "Niveau à partir duquel chaque couleur s'affiche dans la barre des tâches.",
+  "data_daemon_title": "Données & Daemon",
+  "btn_open_data": "Ouvrir le dossier data",
+  "btn_restart_daemon": "Relancer le daemon",
+  "delete_hint": "Vous pouvez aussi faire un clic droit sur un jour ou un mois dans le calendrier pour supprimer ses données.",
+  "btn_delete_old": "Supprimer données > 90 jours",
+  "purge_confirm_title": "Supprimer les données > 90 jours ?",
+  "purge_confirm_msg": "Cette action est irréversible.",
+  "purge_success": "Données de plus de 90 jours supprimées.",
+  "delete_day_msg": "Toutes les mesures de ce jour seront effacées définitivement.",
+  "delete_month_msg": "Toutes les mesures de ce mois seront effacées définitivement."
 }
