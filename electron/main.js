@@ -231,7 +231,9 @@ async function readCsvRangeStreamed(dateFrom, dateTo, secondsPerBucket) {
 // ICÔNE TRAY
 // ══════════════════════════════════════════════════════════
 function getTrayZone(db_a, thresholds) {
-  if (db_a === null || db_a === undefined) return 'offline'
+  // Si aucune donnée ou si le volume est à 0 (pas de son capté), on affiche l'icône grise
+  if (db_a === null || db_a === undefined || db_a <= 0) return 'offline'
+  
   const t = thresholds || { ok: 75, warn: 80, danger: 85 }
   if (db_a < t.ok)     return 'safe'
   if (db_a < t.warn)   return 'ok'
