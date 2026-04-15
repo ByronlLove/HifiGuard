@@ -208,7 +208,7 @@ This is almost always due to a unit error in the headphone sensitivity entered i
 The Windows volume is merely an attenuation percentage. If you use highly sensitive in-ear monitors (IEMs) (e.g., 115 dB/mW) plugged into a very powerful DAC (e.g., 2.0 Vrms), the sound level produced at 15% digital volume could already be physically dangerous to your ears. This highlights the core purpose of HifiGuard: translating an arbitrary digital percentage into actual sound pressure.
 
 **Does the background application impact performance (gaming, audio production)?**
-No. The Python daemon is optimized to be extremely lightweight. Although it captures the audio stream every 25 milliseconds to ensure no peaks are missed, it only writes to the hard drive (`.csv` file) once per second. Furthermore, it does not interfere with the audio stream: it simply "clones" it via the Windows loopback (WASAPI) without adding any latency.
+No. The Python daemon is optimized to be extremely lightweight. Although it captures the audio stream every 25 milliseconds by default to ensure no peaks are missed, it only writes to the hard drive (`.csv` file) once per second. Furthermore, it does not interfere with the audio stream: it simply "clones" it via the Windows loopback (WASAPI) without adding any latency.
 
 **Does HifiGuard work with my wireless Bluetooth headphones?**
 No. As explained in the *Limits and precision* section, Bluetooth headphones have their own internal amplifier and digital signal processor (DSP). Windows does not send an electrical signal to them, but rather digital data. HifiGuard therefore cannot apply its voltage and impedance calculations.
