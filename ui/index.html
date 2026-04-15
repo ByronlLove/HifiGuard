@@ -357,31 +357,31 @@ body.dragging #main{pointer-events:none;}
       <!-- TODAY -->
       <div class="page active" id="page-today">
         <div class="stat-grid">
-          <div class="stat-card"><div class="stat-val" id="s-db" style="color:var(--safe)">--</div><div class="stat-label">dB(A) live</div></div>
-          <div class="stat-card"><div class="stat-val" id="s-niosh">--%</div><div class="stat-label">Dose NIOSH</div><div class="stat-sub">Seuil : 85 dB(A) / 8h</div></div>
-          <div class="stat-card"><div class="stat-val" id="s-omsj">--%</div><div class="stat-label">Dose OMS jour</div><div class="stat-sub">Seuil : 80 dB(A) / ~342min</div></div>
-          <div class="stat-card"><div class="stat-val" id="s-oms7j">--%</div><div class="stat-label">Dose OMS semaine</div><div class="stat-sub">Seuil : 80 dB(A) / 40h</div></div>
-          <div class="stat-card"><div class="stat-val" id="s-max">--</div><div class="stat-label">Pic du jour (dB(A))</div></div>
-          <div class="stat-card"><div class="stat-val" id="s-t80">-- min</div><div class="stat-label">Temps > 80 dB(A)</div></div>
+          <div class="stat-card"><div class="stat-val" id="s-db" style="color:var(--safe)">--</div><div class="stat-label" data-i18n="today_live_db">dB(A) live</div></div>
+          <div class="stat-card"><div class="stat-val" id="s-niosh">--%</div><div class="stat-label" data-i18n="today_niosh">Dose NIOSH</div><div class="stat-sub" data-i18n="today_niosh_sub">Seuil : 85 dB(A) / 8h</div></div>
+          <div class="stat-card"><div class="stat-val" id="s-omsj">--%</div><div class="stat-label" data-i18n="today_oms_day">Dose OMS jour</div><div class="stat-sub" data-i18n="today_oms_day_sub">Seuil : 80 dB(A) / ~342min</div></div>
+          <div class="stat-card"><div class="stat-val" id="s-oms7j">--%</div><div class="stat-label" data-i18n="today_oms_week">Dose OMS semaine</div><div class="stat-sub" data-i18n="today_oms_week_sub">Seuil : 80 dB(A) / 40h</div></div>
+          <div class="stat-card"><div class="stat-val" id="s-max">--</div><div class="stat-label" data-i18n="today_peak">Pic du jour (dB(A))</div></div>
+          <div class="stat-card"><div class="stat-val" id="s-t80">-- min</div><div class="stat-label" data-i18n="today_t80">Temps > 80 dB(A)</div></div>
         </div>
-        <div class="card"><div class="card-title">Niveaux d'exposition</div><div id="dose-bars"></div></div>
+        <div class="card"><div class="card-title" data-i18n="today_exposure">Niveaux d'exposition</div><div id="dose-bars"></div></div>
         <div class="card">
-          <div class="card-title">Aujourd'hui</div>
+          <div class="card-title" data-i18n="today_session">Aujourd'hui</div>
           <div class="chart-wrap">
             <div class="chart-loading" id="loading-today">
               <div class="spinner"></div>
-              <div class="loading-label">Chargement…</div>
+              <div class="loading-label" data-i18n="loading">Chargement…</div>
             </div>
             <canvas id="chart-today"></canvas>
           </div>
           <div class="res-bar">
-            <span class="res-label">Résolution :</span>
-            <button class="res-btn active" data-spb="0"   onclick="setTodayResolution(0)">Auto</button>
+            <span class="res-label" data-i18n="res_label">Résolution :</span>
+            <button class="res-btn active" data-spb="0"   onclick="setTodayResolution(0)" data-i18n="res_auto">Auto</button>
             <button class="res-btn"        data-spb="10"  onclick="setTodayResolution(10)">10s</button>
             <button class="res-btn"        data-spb="60"  onclick="setTodayResolution(60)">1 min</button>
             <button class="res-btn"        data-spb="300" onclick="setTodayResolution(300)">5 min</button>
           </div>
-          <div class="chart-hint">🖱 Molette = zoom · Clic+glisser = déplacer · Double-clic = la dernière min (haute précision)</div>
+          <div class="chart-hint" data-i18n="today_hint">🖱 Molette = zoom · Clic+glisser = déplacer · Double-clic = la dernière min (haute précision)</div>
           <div class="chart-legend" id="legend-today"></div>
         </div>
       </div>
@@ -400,36 +400,35 @@ body.dragging #main{pointer-events:none;}
           <div id="view-year"></div>
           <div id="view-month" class="card">
   <div id="month-metric-bar">
-    <span class="metric-label">Afficher :</span>
-    <button class="metric-btn active" data-metric="oms">OMS/j %</button>
-    <button class="metric-btn" data-metric="niosh">NIOSH %</button>
-    <button class="metric-btn" data-metric="mean">Moy. dB(A)</button>
-    <button class="metric-btn" data-metric="median">Méd. dB(A)</button>
-    <button class="metric-btn" data-metric="peak">Pic dB(A)</button>
-    <button class="metric-btn" data-metric="mean_z">Moy. dB(Z)</button>
+    <span class="metric-label" data-i18n="metric_label">Afficher :</span>
+    <button class="metric-btn active" data-metric="oms" data-i18n="metric_oms">OMS/j %</button>
+    <button class="metric-btn" data-metric="niosh" data-i18n="metric_niosh">NIOSH %</button>
+    <button class="metric-btn" data-metric="mean" data-i18n="metric_mean">Moy. dB(A)</button>
+    <button class="metric-btn" data-metric="median" data-i18n="metric_median">Méd. dB(A)</button>
+    <button class="metric-btn" data-metric="peak" data-i18n="metric_peak">Pic dB(A)</button>
+    <button class="metric-btn" data-metric="mean_z" data-i18n="metric_mean_z">Moy. dB(Z)</button>
   </div>
   <div class="cal-grid" id="cal-month-grid"></div>
 </div>
           <div id="view-day">
             <div class="stat-grid" id="day-stats-grid" style="margin-bottom:12px;"></div>
             <div class="card">
-              <div class="card-title" id="day-chart-title">Courbes du jour</div>
+              <div class="card-title" id="day-chart-title" data-i18n="cal_curves">Courbes du jour</div>
               <div class="chart-wrap">
                 <div class="chart-loading" id="loading-day">
                   <div class="spinner"></div>
-                  <div class="loading-label">Chargement…</div>
+                  <div class="loading-label" data-i18n="loading">Chargement…</div>
                 </div>
                 <canvas id="chart-day"></canvas>
               </div>
-              <!-- Sélecteur de résolution : nb de secondes agrégés par point -->
               <div class="res-bar">
-                <span class="res-label">Résolution :</span>
-                <button class="res-btn active" data-spb="0"  onclick="setDayResolution(0)">Auto</button>
+                <span class="res-label" data-i18n="res_label">Résolution :</span>
+                <button class="res-btn active" data-spb="0"  onclick="setDayResolution(0)" data-i18n="res_auto">Auto</button>
                 <button class="res-btn"        data-spb="10" onclick="setDayResolution(10)">10s</button>
                 <button class="res-btn"        data-spb="60" onclick="setDayResolution(60)">1 min</button>
                 <button class="res-btn"        data-spb="300" onclick="setDayResolution(300)">5 min</button>
               </div>
-              <div class="chart-hint">🖱 Molette = zoom · Clic+glisser = déplacer · Double-clic = réinitialiser</div>
+              <div class="chart-hint" data-i18n="today_hint">🖱 Molette = zoom · Clic+glisser = déplacer · Double-clic = réinitialiser</div>
               <div class="chart-legend" id="legend-day"></div>
             </div>
           </div>
@@ -438,7 +437,7 @@ body.dragging #main{pointer-events:none;}
 
       <!-- SETTINGS -->
       <div class="page" id="page-settings">
-        <div style="font-size:19px;font-weight:700;">Paramètres</div>
+        <div style="font-size:19px;font-weight:700;" data-i18n="nav_settings">Paramètres</div>
 
         <div class="card">
           <div class="card-title">Profils matériels</div>
@@ -470,6 +469,55 @@ body.dragging #main{pointer-events:none;}
             <button class="btn btn-secondary" id="btn-clear-form">Effacer</button>
           </div>
         </div>
+
+        <div class="card">
+          <div class="card-title">Mode de rafraîchissement</div>
+          <div class="refresh-grid" id="refresh-grid">
+            <div class="refresh-card" data-mode="focus"><div class="rc-title">Focus</div><div class="rc-sub">UI: 250ms<br>Tray: 1s</div></div>
+            <div class="refresh-card" data-mode="tray"><div class="rc-title">Réduit</div><div class="rc-sub">UI: 1s<br>Tray: 1s</div></div>
+            <div class="refresh-card" data-mode="eco"><div class="rc-title">Éco</div><div class="rc-sub">UI: 1s<br>Tray: 2s</div></div>
+            <div class="refresh-card" data-mode="custom"><div class="rc-title">Personnalisé</div><div class="rc-sub">Choix libre</div></div>
+          </div>
+          <div id="custom-refresh-fields">
+            <div class="form-row"><label data-i18n="python_ms">Python (ms)</label><input id="rc-python" type="number" placeholder="25" min="10" max="2000"/></div>
+            <div class="form-row"><label data-i18n="ui_poll">UI poll (ms)</label><input id="rc-ui" type="number" placeholder="250" min="50" max="5000"/></div>
+            <div class="form-row"><label data-i18n="tray_poll">Tray poll (ms)</label><input id="rc-tray" type="number" placeholder="1000" min="100" max="10000"/></div>
+          </div>
+          <div style="margin-top:12px;"><button class="btn btn-primary" id="btn-save-refresh">Appliquer</button></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Couleurs icône — seuils dB(A)</div>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Niveau à partir duquel chaque couleur s'affiche dans la barre des tâches.</p>
+          <div class="threshold-grid" id="threshold-grid"></div>
+          <div style="margin-top:12px;"><button class="btn btn-primary" id="btn-save-thresholds">Sauvegarder</button></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title" data-i18n="data_daemon_title">Données & Daemon</div>
+          <div class="btn-row">
+            <button class="btn btn-secondary" id="btn-export" style="display:flex;align-items:center;gap:6px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              <span data-i18n="btn_open_data">Ouvrir le dossier data</span>
+            </button>
+            <button class="btn btn-danger" id="btn-restart" style="display:flex;align-items:center;gap:6px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+              <span data-i18n="btn_restart_daemon">Relancer le daemon</span>
+            </button>
+          </div>
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+            <p style="font-size:12px;color:var(--muted);margin-bottom:10px;" data-i18n="delete_hint">
+              Vous pouvez aussi faire un <strong style="color:var(--text)">clic droit</strong> sur un jour ou un mois dans le calendrier pour supprimer ses données.
+            </p>
+            <div class="btn-row">
+              <button class="btn btn-danger" id="btn-purge-old" style="display:flex;align-items:center;gap:6px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                <span data-i18n="btn_delete_old">Supprimer données > 90 jours</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
         <div class="card">
           <div class="card-title">Mode de rafraîchissement</div>
@@ -527,16 +575,22 @@ body.dragging #main{pointer-events:none;}
     <div id="modal-title"></div>
     <div id="modal-message"></div>
     <div id="modal-actions">
-      <button class="btn btn-secondary" id="modal-cancel">Annuler</button>
-      <button class="btn btn-danger" id="modal-ok">Supprimer</button>
+      <button class="btn btn-secondary" id="modal-cancel" data-i18n="modal_cancel">Annuler</button>
+      <button class="btn btn-danger" id="modal-ok" data-i18n="modal_delete">Supprimer</button>
     </div>
   </div>
 </div>
 <div id="ctx-menu">
   <div class="ctx-item disabled" id="ctx-title" style="font-weight:600;font-size:12px;color:var(--muted);cursor:default;"></div>
   <div class="ctx-separator"></div>
-  <div class="ctx-item" id="ctx-delete-day">🗑 Supprimer ce jour</div>
-  <div class="ctx-item danger" id="ctx-delete-month">🗑 Supprimer tout le mois</div>
+  <div class="ctx-item" id="ctx-delete-day" style="display:flex;align-items:center;gap:6px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+    <span data-i18n="ctx_delete_day">Supprimer ce jour</span>
+  </div>
+  <div class="ctx-item danger" id="ctx-delete-month" style="display:flex;align-items:center;gap:6px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+    <span data-i18n="ctx_delete_month">Supprimer tout le mois</span>
+  </div>
 </div>
 <script>
 // Désactiver les transitions pendant le drag de la fenêtre
