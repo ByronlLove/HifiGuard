@@ -1,6 +1,6 @@
 ![](assets/icon%20banner.svg)
 
-**Personal hearing dosimeter for headphones and earphones — Windows**
+**Personal hearing dosimeter for headphones and earphones - Windows**
 
 *Read this in other languages: [Français](README_FR.md).*
 
