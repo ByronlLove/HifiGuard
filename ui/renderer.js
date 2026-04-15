@@ -140,46 +140,6 @@ function dbColor(db) {
   return 'var(--danger)'
 }
 
-// ══════════════════════════════════════════════════════════
-// INIT
-// ══════════════════════════════════════════════════════════
-async function init() {
-  L      = await window.hifi.getLocale()
-  MONTHS = L.months || []
-  DAYS   = L.days   || []
-  config = await window.hifi.getConfig()
-  
-  // ── TRADUCTION DE L'INTERFACE ──
-  applyTranslations()
-  // ───────────────────────────────
-
-  // Si une langue est déjà configurée, masquer immédiatement le setup overlay
-  if (config && config.language) {
-    const setupEl = document.getElementById('lang-setup')
-    if (setupEl) { setupEl.classList.add('done'); setTimeout(() => setupEl.remove(), 10) }
-  }
-  
-  suivi  = await window.hifi.getSuivi()
-  suiviLastFetch = Date.now()
-
-  initChartToday()
-  initChartDay()
-
-  renderDoseBars(null)
-  await reloadTodayFromCSV()
-
-  const appLoader = document.getElementById('app-loader')
-  if (appLoader) { appLoader.classList.add('done'); setTimeout(() => appLoader.remove(), 350) }
-
-  startLivePoll()
-
-  document.addEventListener('keydown', e => {
-    if (e.code === 'Space' && currentPage === 'today') {
-      e.preventDefault(); togglePause()
-    }
-  })
-}
-
 // ── Context menu ─────────────────────────────────────────────
 let ctxTarget = null  // { type: 'day'|'month', key: '2026-04' | '2026-04-12' }
 
@@ -289,43 +249,6 @@ document.querySelectorAll('.metric-btn').forEach(el => {
     if (calView === 'month') renderViewMonth()
   })
 })
-
-async function init() {
-  L      = await window.hifi.getLocale()
-  MONTHS = L.months || []
-  DAYS   = L.days   || []
-  config = await window.hifi.getConfig()
-  // Si une langue est déjà configurée, masquer immédiatement le setup overlay
-  if (config && config.language) {
-    const setupEl = document.getElementById('lang-setup')
-    if (setupEl) { setupEl.classList.add('done'); setTimeout(() => setupEl.remove(), 10) }
-  }
-  suivi  = await window.hifi.getSuivi()
-  suiviLastFetch = Date.now()
-
-  // Pré-créer les deux charts dès le boot
-  initChartToday()
-  initChartDay()
-
-  renderDoseBars(null)
-  await reloadTodayFromCSV()
-
-  // App prête — masquer le loader
-  const appLoader = document.getElementById('app-loader')
-  if (appLoader) { appLoader.classList.add('done'); setTimeout(() => appLoader.remove(), 350) }
-
-  // Le live arrive par push (state-update) depuis le main process
-  // pollState n'est qu'un fallback si l'event n'arrive pas
-  startLivePoll()
-
-  // Pas de reload au retour de l'alt-tab — sessionData est maintenu en continu
-
-  document.addEventListener('keydown', e => {
-    if (e.code === 'Space' && currentPage === 'today') {
-      e.preventDefault(); togglePause()
-    }
-  })
-}
 
 // ══════════════════════════════════════════════════════════
 // LIVE — deux voies découplées
@@ -1281,5 +1204,50 @@ document.querySelectorAll('.metric-btn').forEach(el => {
     if (calView === 'month') renderViewMonth()
   })
 })
+
+// ══════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════
+
+async function init() {
+  L      = await window.hifi.getLocale()
+  MONTHS = L.months || []
+  DAYS   = L.days   || []
+  config = await window.hifi.getConfig()
+  
+  // ── TRADUCTION DE L'INTERFACE ──
+  if (typeof applyTranslations === 'function') {
+    applyTranslations()
+  }
+  // ───────────────────────────────
+
+  // Si une langue est déjà configurée, masquer immédiatement le setup overlay
+  if (config && config.language) {
+    const setupEl = document.getElementById('lang-setup')
+    if (setupEl) { setupEl.classList.add('done'); setTimeout(() => setupEl.remove(), 10) }
+  }
+  
+  suivi  = await window.hifi.getSuivi()
+  suiviLastFetch = Date.now()
+
+  // Pré-créer les deux charts dès le boot
+  initChartToday()
+  initChartDay()
+
+  renderDoseBars(null)
+  await reloadTodayFromCSV()
+
+  // App prête — masquer le loader
+  const appLoader = document.getElementById('app-loader')
+  if (appLoader) { appLoader.classList.add('done'); setTimeout(() => appLoader.remove(), 350) }
+
+  startLivePoll()
+
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' && currentPage === 'today') {
+      e.preventDefault(); togglePause()
+    }
+  })
+}
 
 init()
