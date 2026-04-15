@@ -54,6 +54,7 @@ HifiGuard is natively compatible with system equalisation solutions such as [Equ
 |-----------|---------------------------------------------------------------------------------------------------------------------------------|--------|--------------------------|
 | Installer | [`HifiGuard Setup 1.0.0.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.0.0/HifiGuard%20Setup%201.0.0.exe)   | 125 MB | None — Python is bundled |
 | Portable  | [`HifiGuard-1.0.0-portable.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.0.0/HifiGuard-1.0.0-portable.exe) | 123 MB | None — Python is bundled |
+
 **[Download the latest release here](https://github.com/ByronlLove/HifiGuard/releases/latest)**
 
 ### First launch
@@ -225,6 +226,7 @@ No. As explained in the *Limits and precision* section, Bluetooth headphones hav
 
 - [ ] **Frequency Response Compensation:** Integration of specific frequency response curves for each headphone or earphone for an even more precise SPL calculation.
 - [ ] **Visual Themes:** Support for "Ghost" and "Transparent" UI modes.
+- [ ] **Data Optimization:** Split the historical CSV file by day.
 
 
 ## Credits
