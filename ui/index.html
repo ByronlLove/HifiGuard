@@ -440,16 +440,16 @@ body.dragging #main{pointer-events:none;}
         <div style="font-size:19px;font-weight:700;" data-i18n="nav_settings">Paramètres</div>
 
         <div class="card">
-          <div class="card-title">Profils matériels</div>
+          <div class="card-title" data-i18n="settings_profiles">Profils matériels</div>
           <div class="profile-list" id="profile-list"></div>
         </div>
 
         <div class="card">
-          <div class="card-title">Ajouter / modifier un profil</div>
+          <div class="card-title" data-i18n="settings_add_profile">Ajouter / modifier un profil</div>
           <div class="form-grid">
-            <div class="form-row form-full"><label>Nom du profil</label><input id="f-name" placeholder="ex: Sony WH-1000XM5"/></div>
+            <div class="form-row form-full"><label data-i18n="profile_name">Nom du profil</label><input id="f-name" placeholder="ex: Sony WH-1000XM5"/></div>
             <div class="form-row">
-              <label>Sensibilité</label>
+              <label data-i18n="profile_sens">Sensibilité</label>
               <div style="display:flex;gap:6px;">
                 <input id="f-sens" type="number" step="0.1" placeholder="96.0" style="flex:1;"/>
                 <select id="f-sens-unit" style="width:90px;">
@@ -459,38 +459,38 @@ body.dragging #main{pointer-events:none;}
                 </select>
               </div>
             </div>
-            <div class="form-row"><label>Impédance (Ω)</label><input id="f-imp" type="number" step="0.5" placeholder="32.0"/></div>
-            <div class="form-row"><label>Tension DAC Vout (Vrms)</label><input id="f-vout" type="number" step="0.01" placeholder="1.2"/></div>
-            <div class="form-row form-full"><label>Description</label><input id="f-desc" placeholder="ex: DAC CX31993..."/></div>
+            <div class="form-row"><label data-i18n="profile_imp">Impédance (Ω)</label><input id="f-imp" type="number" step="0.5" placeholder="32.0"/></div>
+            <div class="form-row"><label data-i18n="profile_vout">Tension DAC Vout (Vrms)</label><input id="f-vout" type="number" step="0.01" placeholder="1.2"/></div>
+            <div class="form-row form-full"><label data-i18n="profile_desc">Description</label><input id="f-desc" placeholder="ex: DAC CX31993..."/></div>
           </div>
           <div id="f-maxspl" style="font-size:12px;color:var(--muted);margin:10px 0 12px;min-height:16px;"></div>
           <div class="btn-row">
-            <button class="btn btn-primary" id="btn-save-profile">Sauvegarder</button>
-            <button class="btn btn-secondary" id="btn-clear-form">Effacer</button>
+            <button class="btn btn-primary" id="btn-save-profile" data-i18n="btn_save">Sauvegarder</button>
+            <button class="btn btn-secondary" id="btn-clear-form" data-i18n="btn_clear">Effacer</button>
           </div>
         </div>
 
         <div class="card">
-          <div class="card-title">Mode de rafraîchissement</div>
+          <div class="card-title" data-i18n="settings_refresh">Mode de rafraîchissement</div>
           <div class="refresh-grid" id="refresh-grid">
-            <div class="refresh-card" data-mode="focus"><div class="rc-title">Focus</div><div class="rc-sub">UI: 250ms<br>Tray: 1s</div></div>
-            <div class="refresh-card" data-mode="tray"><div class="rc-title">Réduit</div><div class="rc-sub">UI: 1s<br>Tray: 1s</div></div>
-            <div class="refresh-card" data-mode="eco"><div class="rc-title">Éco</div><div class="rc-sub">UI: 1s<br>Tray: 2s</div></div>
-            <div class="refresh-card" data-mode="custom"><div class="rc-title">Personnalisé</div><div class="rc-sub">Choix libre</div></div>
+            <div class="refresh-card" data-mode="focus"><div class="rc-title" data-i18n="refresh_focus">Focus</div><div class="rc-sub">UI: 250ms<br>Tray: 1s</div></div>
+            <div class="refresh-card" data-mode="tray"><div class="rc-title" data-i18n="refresh_tray">Réduit</div><div class="rc-sub">UI: 1s<br>Tray: 1s</div></div>
+            <div class="refresh-card" data-mode="eco"><div class="rc-title" data-i18n="refresh_eco">Éco</div><div class="rc-sub">UI: 1s<br>Tray: 2s</div></div>
+            <div class="refresh-card" data-mode="custom"><div class="rc-title" data-i18n="refresh_custom">Personnalisé</div><div class="rc-sub" data-i18n="refresh_free">Choix libre</div></div>
           </div>
           <div id="custom-refresh-fields">
             <div class="form-row"><label data-i18n="python_ms">Python (ms)</label><input id="rc-python" type="number" placeholder="25" min="10" max="2000"/></div>
             <div class="form-row"><label data-i18n="ui_poll">UI poll (ms)</label><input id="rc-ui" type="number" placeholder="250" min="50" max="5000"/></div>
             <div class="form-row"><label data-i18n="tray_poll">Tray poll (ms)</label><input id="rc-tray" type="number" placeholder="1000" min="100" max="10000"/></div>
           </div>
-          <div style="margin-top:12px;"><button class="btn btn-primary" id="btn-save-refresh">Appliquer</button></div>
+          <div style="margin-top:12px;"><button class="btn btn-primary" id="btn-save-refresh" data-i18n="btn_apply">Appliquer</button></div>
         </div>
 
         <div class="card">
-          <div class="card-title">Couleurs icône — seuils dB(A)</div>
-          <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Niveau à partir duquel chaque couleur s'affiche dans la barre des tâches.</p>
+          <div class="card-title" data-i18n="settings_colors">Couleurs icône — seuils dB(A)</div>
+          <p style="font-size:12px;color:var(--muted);margin-bottom:12px;" data-i18n="colors_hint">Niveau à partir duquel chaque couleur s'affiche dans la barre des tâches.</p>
           <div class="threshold-grid" id="threshold-grid"></div>
-          <div style="margin-top:12px;"><button class="btn btn-primary" id="btn-save-thresholds">Sauvegarder</button></div>
+          <div style="margin-top:12px;"><button class="btn btn-primary" id="btn-save-thresholds" data-i18n="btn_save">Sauvegarder</button></div>
         </div>
 
         <div class="card">
