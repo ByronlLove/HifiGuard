@@ -1069,18 +1069,29 @@ function updateMaxSplPreview() {
 
 async function saveProfile() {
   const name = document.getElementById('f-name').value.trim()
-  // On récupère les valeurs de façon plus sécurisée
-  const sens = parseFloat(document.getElementById('f-sens').value)
+  const sens = document.getElementById('f-sens').value
   const unit = document.getElementById('f-sens-unit').value
-  const imp  = parseFloat(document.getElementById('f-imp').value)
-  const vout = parseFloat(document.getElementById('f-vout').value)
+  const imp  = document.getElementById('f-imp').value
+  const vout = document.getElementById('f-vout').value
   const desc = document.getElementById('f-desc').value.trim()
   
-  // isNaN permet de vérifier si c'est "Not a Number" de manière plus fiable
-  if (!name || isNaN(sens) || isNaN(imp) || isNaN(vout)) { 
+  // On vérifie juste que les champs de base ne sont pas vides
+  if (!name || !sens || !imp || !vout) { 
     showToast(L.fill_required || 'Veuillez remplir tous les champs avec des nombres valides.'); 
     return 
   }
+  
+  config = await window.hifi.getConfig()
+  config.profiles[name] = { 
+    sensitivity: parseFloat(sens), 
+    sensitivity_unit: unit, 
+    impedance: parseFloat(imp), 
+    dac_vout: parseFloat(vout), 
+    description: desc 
+  }
+  await window.hifi.saveConfig(config)
+  clearForm(); renderProfileList()
+}
   
   config = await window.hifi.getConfig()
   config.profiles[name] = { sensitivity:sens, sensitivity_unit:unit, impedance:imp, dac_vout:vout, description:desc }
