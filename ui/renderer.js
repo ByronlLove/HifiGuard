@@ -492,39 +492,31 @@ function appendTodayPoint(state) {
   const d   = suivi[today] || {}
   const col = dbColor(state.db_a)
 
+  // ── ICI ON UTILISE LE STATE EN TEMPS RÉEL (state.) AU LIEU DE (d.) ──
   document.getElementById('s-db').textContent    = state.db_a > 0 ? state.db_a.toFixed(1) + ' dB' : '--'
   document.getElementById('s-db').style.color    = col
-  document.getElementById('s-niosh').textContent = (d.dose_niosh_pct    || 0).toFixed(1) + '%'
-  document.getElementById('s-omsj').textContent  = (d.dose_who_day_pct  || 0).toFixed(1) + '%'
-  document.getElementById('s-oms7j').textContent = state.dose_who_7j.toFixed(1) + '%'
-  document.getElementById('s-max').textContent   = (d.max_db_a           || 0).toFixed(1) + ' dB'
-  document.getElementById('s-t80').textContent   = (d.minutes_above_80   || 0).toFixed(1) + ' min'
-  renderDoseBars({ niosh: d.dose_niosh_pct || 0, omsj: d.dose_who_day_pct || 0, oms7j: state.dose_who_7j })
+  document.getElementById('s-niosh').textContent = (state.dose_niosh || 0).toFixed(1) + '%'
+  document.getElementById('s-omsj').textContent  = (state.dose_who_j || 0).toFixed(1) + '%'
+  document.getElementById('s-oms7j').textContent = (state.dose_who_7j || 0).toFixed(1) + '%'
+  document.getElementById('s-max').textContent   = (state.max_db_a || 0).toFixed(1) + ' dB'
+  document.getElementById('s-t80').textContent   = (d.minutes_above_80 || 0).toFixed(1) + ' min'
+  renderDoseBars({ niosh: state.dose_niosh || 0, omsj: state.dose_who_j || 0, oms7j: state.dose_who_7j || 0 })
 
-  // Recharger suivi throttlé (30s) pour avoir les stats à jour
+  // Recharger suivi throttlé (30s) pour garder le temps > 80dB à jour
   getSuiviThrottled()
 
-  // Le daemon écrit datetime.now().isoformat() = heure locale sans timezone.
-  // new Date("2026-04-12T22:01:22") est interprété UTC par JS → décalage en FR.
-  // On parse manuellement pour forcer l'interprétation en heure locale.
   const nowTs  = state.ts || new Date().toISOString()
   const label  = nowTs.slice(11, 19)
   const nowMs  = localIsoToMs(nowTs)
 
-  // Accumuler le max dans le bucket en cours
   if (state.db_a > 0) sessionBucket.maxDba = Math.max(sessionBucket.maxDba, state.db_a)
 
-  // Intervalle d'écriture selon todayResolution
-  // todayResolution=0 → 1s (même résolution que le CSV)
   const flushIntervalMs = (todayResolution > 0 ? todayResolution : 1) * 1000
-
   const lastFlush = sessionBucket.lastFlush
   const elapsedMs = lastFlush ? (nowMs - localIsoToMs(lastFlush)) : flushIntervalMs
 
-  // Flush seulement si l'intervalle est écoulé
   if (elapsedMs < flushIntervalMs) return
 
-  // Détecter un gap (pause, redémarrage)
   const lastTs = sessionData.lastTs
   if (lastTs) {
     const gapMs = localIsoToMs(nowTs) - localIsoToMs(lastTs)
@@ -533,15 +525,15 @@ function appendTodayPoint(state) {
       sessionData.niosh.push(null);  sessionData.omsj.push(null)
     }
   }
-  sessionData.lastTs     = nowTs
+  sessionData.lastTs      = nowTs
   sessionBucket.lastFlush = nowTs
 
   sessionData.labels.push(label)
   sessionData.dba.push(sessionBucket.maxDba > 0 ? sessionBucket.maxDba : 0)
-  sessionData.niosh.push(d.dose_niosh_pct  || null)
-  sessionData.omsj.push(d.dose_who_day_pct || null)
+  // ── COURBES EN TEMPS RÉEL ICI AUSSI ──
+  sessionData.niosh.push(state.dose_niosh || null)
+  sessionData.omsj.push(state.dose_who_j  || null)
 
-  // Reset bucket
   sessionBucket.maxDba = 0
 
   if (sessionData.labels.length > SESSION_MAX) {
@@ -551,8 +543,6 @@ function appendTodayPoint(state) {
   }
 
   if (chartToday) {
-    // En mode hires, ne pas écraser les données du chart avec sessionData —
-    // la RAF loop s'en charge avec une copie fraîche du hiresBuffer
     if (!hiresMode) {
       chartToday.data.labels           = sessionData.labels
       chartToday.data.datasets[0].data = sessionData.dba
@@ -561,14 +551,11 @@ function appendTodayPoint(state) {
     }
     chartTodayDirty = true
   }
-
 }
 
 // Alimente le hiresBuffer en permanence — appelé pour chaque state reçu
 // indépendamment de la page visible ou du mode tray
 function feedHiresBuffer(state) {
-  const today  = new Date().toISOString().slice(0, 10)
-  const d      = suivi[today] || {}
   const nowTs  = state.ts || new Date().toISOString()
   const label  = nowTs.slice(11, 19)
 
@@ -583,14 +570,15 @@ function feedHiresBuffer(state) {
   hiresBuffer.lastTs = nowTs
   hiresBuffer.labels.push(label)
   hiresBuffer.dba.push(state.db_a > 0 ? state.db_a : 0)
-  hiresBuffer.niosh.push(d.dose_niosh_pct  || null)
-  hiresBuffer.omsj.push(d.dose_who_day_pct || null)
+  // ── COURBES HAUTE PRÉCISION EN TEMPS RÉEL ──
+  hiresBuffer.niosh.push(state.dose_niosh || null)
+  hiresBuffer.omsj.push(state.dose_who_j  || null)
+  
   if (hiresBuffer.labels.length > HIRES_MAX) {
     const t = hiresBuffer.labels.length - HIRES_MAX
     hiresBuffer.labels.splice(0,t); hiresBuffer.dba.splice(0,t)
     hiresBuffer.niosh.splice(0,t);  hiresBuffer.omsj.splice(0,t)
   }
-  // Si on est en hiresMode, marquer le chart dirty pour la RAF loop
   if (hiresMode && chartToday) chartTodayDirty = true
 }
 
