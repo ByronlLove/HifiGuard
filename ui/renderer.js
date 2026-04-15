@@ -185,8 +185,8 @@ document.getElementById('ctx-delete-day').addEventListener('click', async () => 
   const [y,m,d] = key.split('-')
   hideCtxMenu()
   showConfirm(
-    `Supprimer le ${parseInt(d)} ${MONTHS[parseInt(m)-1]} ${y} ?`,
-    'Toutes les mesures de ce jour seront effacées définitivement.',
+    `${L.profile_delete || 'Supprimer'} le ${parseInt(d)} ${MONTHS[parseInt(m)-1]} ${y} ?`,
+    L.delete_day_msg || 'Toutes les mesures de ce jour seront effacées définitivement.',
     async () => {
       const r = await window.hifi.deleteDayData(key)
       if (r.ok) {
@@ -203,8 +203,8 @@ document.getElementById('ctx-delete-month').addEventListener('click', async () =
   const [y, m] = ctxTarget.key.split('-')
   hideCtxMenu()
   showConfirm(
-    `Supprimer ${MONTHS[parseInt(m)-1]} ${y} ?`,
-    'Toutes les mesures de ce mois seront effacées définitivement.',
+    `${L.profile_delete || 'Supprimer'} ${MONTHS[parseInt(m)-1]} ${y} ?`,
+    L.delete_month_msg || 'Toutes les mesures de ce mois seront effacées définitivement.',
     async () => {
       const r = await window.hifi.deleteMonthData(parseInt(y), parseInt(m))
       if (r.ok) {
@@ -972,11 +972,19 @@ async function renderSettings() {
   renderRefreshModes()
   renderThresholds()
   document.getElementById('btn-export').onclick = () => window.hifi.openDataFolder()
-  document.getElementById('btn-purge-old').onclick       = async () => {
-    showConfirm('Supprimer les données > 90 jours ?', 'Cette action est irréversible.', async () => {
-    const r = await window.hifi.deleteOldData(90)
-    if (r.ok) { suivi = await window.hifi.getSuivi(); suiviLastFetch = Date.now(); showToast('Données de plus de 90 jours supprimées.') }
-    })
+  document.getElementById('btn-purge-old').onclick = async () => {
+    showConfirm(
+      L.purge_confirm_title || 'Supprimer les données > 90 jours ?', 
+      L.purge_confirm_msg || 'Cette action est irréversible.', 
+      async () => {
+        const r = await window.hifi.deleteOldData(90)
+        if (r.ok) { 
+          suivi = await window.hifi.getSuivi(); 
+          suiviLastFetch = Date.now(); 
+          showToast(L.purge_success || 'Données de plus de 90 jours supprimées.') 
+        }
+      }
+    )
   }
   document.getElementById('btn-restart').onclick         = () => window.hifi.restartDaemon()
   document.getElementById('btn-clear-form').onclick      = clearForm
