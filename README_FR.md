@@ -181,10 +181,18 @@ git clone https://github.com/ByronlLove/HifiGuard.git
 # Windows — double-cliquer sur build.bat
 # ou en ligne de commande :
 
-# Étape 1 — compiler le daemon Python
-pyinstaller --onefile --noconsole --name hifiguard --distpath daemon/dist daemon/hifiguard.py
+# 1. Créer et activer un environnement virtuel Python
+python -m venv venv
+.\venv\Scripts\activate
 
-# Étape 2 — build Electron
+# 2. Installer les dépendances Python
+pip install pyinstaller soundcard numpy scipy pycaw comtypes
+
+# 3. Compiler le daemon Python en .exe
+python -m PyInstaller --onefile --noconsole --name hifiguard --distpath daemon/dist daemon/hifiguard.py --clean
+
+# 4. Installer les dépendances Node et packager l'application Electron
+npm install
 npm run build
 ```
 
