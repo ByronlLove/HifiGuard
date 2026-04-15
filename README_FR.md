@@ -119,7 +119,6 @@ HifiGuard/
 └── package.json
 ```
 
----
 
 ## Limites et précision
 
