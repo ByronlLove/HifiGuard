@@ -220,6 +220,14 @@ No. As explained in the *Limits and precision* section, Bluetooth headphones hav
 - [ ] **Visual Themes:** Support for "Ghost" and "Transparent" UI modes.
 
 
+## Crédits
+
+**ByronlLove** — Software architecture and audio analysis engine design, 
+dosimetric calculation modeling, user experience (UI/UX) design, 
+testing (QA), and deployment.
+
+Source code and traduction implemented with the assistance of Claude (Anthropic).
+
 ## Licence
 
 AGPL-3.0 — see [LICENSE](LICENSE)
