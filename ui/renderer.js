@@ -1092,12 +1092,6 @@ async function saveProfile() {
   await window.hifi.saveConfig(config)
   clearForm(); renderProfileList()
 }
-  
-  config = await window.hifi.getConfig()
-  config.profiles[name] = { sensitivity:sens, sensitivity_unit:unit, impedance:imp, dac_vout:vout, description:desc }
-  await window.hifi.saveConfig(config)
-  clearForm(); renderProfileList()
-}
 
 function clearForm() {
   ['f-name','f-sens','f-imp','f-vout','f-desc'].forEach(id => document.getElementById(id).value = '')
