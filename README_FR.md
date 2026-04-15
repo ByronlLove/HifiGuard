@@ -8,7 +8,7 @@ HifiGuard est un dosimètre auditif pour Windows, basé sur Electron et Python, 
 
 Le moteur d'analyse applique une pondération fréquentielle A-weighting (norme IEC 61672-1) pour refléter la sensibilité de l'audition humaine. Il permet de quantifier l'exposition quotidienne et hebdomadaire en se basant sur les référentiels NIOSH et OMS/ITU H.870.
 
-HifiGuard est nativement compatible avec des equalizers systèmes telles qu'[Equalizer APO](https://sourceforge.net/projects/equalizerapo/) et son interface [Peace GUI](https://sourceforge.net/projects/peace-equalizer-apo-extension/), dont il intègre les modifications de gain et de filtrage dans ses calculs.
+HifiGuard est nativement compatible avec des equalizers système telles qu'[Equalizer APO](https://sourceforge.net/projects/equalizerapo/) et son interface [Peace GUI](https://sourceforge.net/projects/peace-equalizer-apo-extension/), dont il intègre les modifications de gain et de filtrage dans ses calculs.
 
 > **Avertissement :** HifiGuard est un outil d'estimation logicielle et non un sonomètre matériel certifié. Les résultats fournis sont des approximations hautes destinées à la prévention personnelle et ne sauraient remplacer une mesure acoustique effectuée avec un appareil certifié IEC 61672. Pour une mesure réglementaire, utilisez un sonomètre acoustique homologué.
 
@@ -228,7 +228,7 @@ Non. Comme expliqué dans la section *Limites et précision*, les casques Blueto
 définition des modèles de calcul dosimétrique, conception de l'expérience utilisateur (UI/UX), 
 tests (QA) et déploiement.
 
-Code source et traduction implémenté avec l'assistance de Claude (Anthropic).
+Code source et traduction implémentés avec l'assistance de Claude (Anthropic).
 
 
 ## Licence
