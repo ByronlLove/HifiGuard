@@ -489,7 +489,7 @@ ipcMain.handle('set-language', async (_, lang) => {
   return true
 })
 
-ipcMain.handle('export-data',    () => exportData())
+ipcMain.handle('open-data-folder', () => { shell.showItemInFolder(DATA_DIR); return true })
 ipcMain.handle('restart-daemon', () => restartDaemon())
 
 // ── Suppression de données ────────────────────────────────
