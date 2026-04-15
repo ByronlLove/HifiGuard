@@ -518,47 +518,6 @@ body.dragging #main{pointer-events:none;}
           </div>
         </div>
       </div>
-
-        <div class="card">
-          <div class="card-title">Mode de rafraîchissement</div>
-          <div class="refresh-grid" id="refresh-grid">
-            <div class="refresh-card" data-mode="focus"><div class="rc-title">Focus</div><div class="rc-sub">UI: 250ms<br>Tray: 1s</div></div>
-            <div class="refresh-card" data-mode="tray"><div class="rc-title">Réduit</div><div class="rc-sub">UI: 1s<br>Tray: 1s</div></div>
-            <div class="refresh-card" data-mode="eco"><div class="rc-title">Éco</div><div class="rc-sub">UI: 1s<br>Tray: 2s</div></div>
-            <div class="refresh-card" data-mode="custom"><div class="rc-title">Personnalisé</div><div class="rc-sub">Choix libre</div></div>
-          </div>
-          <div id="custom-refresh-fields">
-            <div class="form-row"><label>Python (ms)</label><input id="rc-python" type="number" placeholder="25" min="10" max="2000"/></div>
-            <div class="form-row"><label>UI poll (ms)</label><input id="rc-ui" type="number" placeholder="250" min="50" max="5000"/></div>
-            <div class="form-row"><label>Tray poll (ms)</label><input id="rc-tray" type="number" placeholder="1000" min="100" max="10000"/></div>
-          </div>
-          <div style="margin-top:12px;"><button class="btn btn-primary" id="btn-save-refresh">Appliquer</button></div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">Couleurs icône — seuils dB(A)</div>
-          <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Niveau à partir duquel chaque couleur s'affiche dans la barre des tâches.</p>
-          <div class="threshold-grid" id="threshold-grid"></div>
-          <div style="margin-top:12px;"><button class="btn btn-primary" id="btn-save-thresholds">Sauvegarder</button></div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">Données & Daemon</div>
-          <div class="btn-row">
-            <button class="btn btn-secondary" id="btn-export">📂 Ouvrir le dossier data</button>
-            <button class="btn btn-danger" id="btn-restart">⟲ Relancer le daemon</button>
-          </div>
-          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
-            <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">
-              Vous pouvez aussi faire un <strong style="color:var(--text)">clic droit</strong> sur un jour ou un mois dans le calendrier pour supprimer ses données.
-            </p>
-            <div class="btn-row">
-              <button class="btn btn-danger" id="btn-purge-old">🗑 Supprimer données > 90 jours</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
     </div>
   </div>
 </div>
