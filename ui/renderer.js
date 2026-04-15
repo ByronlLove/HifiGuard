@@ -1118,15 +1118,16 @@ async function saveRefresh() {
   await window.hifi.saveConfig(config)
 }
 
-const THRESHOLD_DEFS = [
-  { key:'ok',     label:'Vert (sûr)',      color:'#22c55e' },
-  { key:'warn',   label:'Orange (modéré)', color:'#f97316' },
-  { key:'danger', label:'Rouge (danger)',  color:'#ef4444' },
-]
-
+// On intègre la traduction dynamique directement dans la fonction
 function renderThresholds() {
   const t = getThresholds()
-  document.getElementById('threshold-grid').innerHTML = THRESHOLD_DEFS.map(def => `
+  const defs = [
+    { key:'ok',     label: L.color_ok     || 'Jaune (correct)', color:'#84cc16' },
+    { key:'warn',   label: L.color_warn   || 'Orange (modéré)', color:'#f97316' },
+    { key:'danger', label: L.color_danger || 'Rouge (danger)',  color:'#ef4444' },
+  ]
+  
+  document.getElementById('threshold-grid').innerHTML = defs.map(def => `
     <div class="threshold-row">
       <div class="threshold-color" style="background:${def.color}"></div>
       <div class="threshold-label">${def.label}</div>
