@@ -1,6 +1,6 @@
 ![](assets/icon%20banner.svg)
 
-**Dosimètre auditif personnel pour casques et écouteurs — Windows**
+**Dosimètre auditif personnel pour casques et écouteurs - Windows**
 
 *Read this in other languages: [English](README.md).*
 
@@ -50,12 +50,17 @@ HifiGuard est nativement compatible avec des equalizers système telles qu'[Equa
 
 ## Installation
 
-| Version | Fichier | Prérequis |
-|---------|---------|-----------|
-| Installateur | `HifiGuard Setup x.x.x.exe` | Aucun — Python est intégré |
-| Portable | `HifiGuard-x.x.x-portable.exe` | Aucun — Python est intégré |
+| Version      | Fichier                                                                                                                         | Taille | Prérequis                  |
+|--------------|---------------------------------------------------------------------------------------------------------------------------------|--------|----------------------------|
+| Installateur | [`HifiGuard Setup 1.0.0.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.0.0/HifiGuard%20Setup%201.0.0.exe)   | 125 Mo | Aucun — Python est intégré |
+| Portable     | [`HifiGuard-1.0.0-portable.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.0.0/HifiGuard-1.0.0-portable.exe) | 123 Mo | Aucun — Python est intégré |
 
-Téléchargez la dernière version depuis la page [Releases](../../releases).
+### Premier lancement
+
+1. Exécutez l'installateur ou le fichier portable.
+2. Au premier lancement, choisissez votre langue.
+3. Rendez-vous dans **Paramètres** et créez un profil matériel pour votre casque (voir ci-dessous).
+4. Le daemon démarre automatiquement. L'icône tray devient verte dès qu'un signal audio est détecté.
 
 
 ### Premier lancement
@@ -70,10 +75,10 @@ Téléchargez la dernière version depuis la page [Releases](../../releases).
 
 HifiGuard requiert les caractéristiques électriques de votre casque pour calculer le SPL réel reçu à l'oreille. Ces valeurs se trouvent dans la fiche technique du fabricant ou sur des sites de mesures indépendantes ([Rtings.com](https://www.rtings.com), [Oratory1990](https://www.reddit.com/r/oratory1990/wiki/index/), [Crinacle](https://crinacle.com)).
 
-| Paramètre | Description | Exemple |
-|-----------|-------------|---------|
-| **Sensibilité** | En dB/mW, mV/Pa ou dB/V, selon la fiche technique | `96 dB/mW` |
-| **Impédance** | En Ohms (Ω) | `32 Ω` |
+| Paramètre            | Description                                             | Exemple    |
+|----------------------|---------------------------------------------------------|------------|
+| **Sensibilité**      | En dB/mW, mV/Pa ou dB/V, selon la fiche technique       | `96 dB/mW` |
+| **Impédance**        | En Ohms (Ω)                                             | `32 Ω`     |
 | **Tension Vout DAC** | Tension de sortie RMS de votre source (DAC / carte son) | `1.2 Vrms` |
 
 La tension Vout de votre DAC ou carte son figure dans ses spécifications techniques. Pour une carte son intégrée standard, une valeur de 1,0 à 1,5 Vrms est courante.
@@ -117,6 +122,7 @@ HifiGuard/
 ├── assets/             Icônes et captures d'écran
 ├── build.bat           Script de build Windows en un clic
 └── package.json
+└── package-lock.json
 ```
 
 
@@ -135,17 +141,17 @@ Le calcul reposant sur l'architecture audio de Windows, certaines configurations
 
 ## Spécifications techniques
 
-| Composant | Détail |
-|-----------|--------|
-| Capture audio | Loopback WASAPI via `soundcard` |
+| Composant                 | Détail                                                  |
+|---------------------------|---------------------------------------------------------|
+| Capture audio             | Loopback WASAPI via `soundcard`                         |
 | Pondération fréquentielle | A-weighting, IEC 61672-1, filtre IIR via `scipy.signal` |
-| Intervalle de mesure | Blocs audio de 25 ms (configurable) |
-| Enregistrement CSV | 1 ligne par seconde (pic de la seconde écoulée) |
-| Norme NIOSH | 85 dB(A), 8h, taux d'échange 3 dB (NIOSH 1998) |
-| Norme OMS | 80 dB(A), 342 min/jour, 40h/semaine — ITU-T H.870 |
-| Interface | Electron 28, Chart.js 4.4, chartjs-plugin-zoom |
-| Daemon | Python 3.10+, NumPy, SciPy, soundcard, pycaw |
-| Plateforme | Windows 10 / 11 (x64) |
+| Intervalle de mesure      | Blocs audio de 25 ms (configurable)                     |
+| Enregistrement CSV        | 1 ligne par seconde (pic de la seconde écoulée)         |
+| Norme NIOSH               | 85 dB(A), 8h, taux d'échange 3 dB (NIOSH 1998)          |
+| Norme OMS                 | 80 dB(A), 342 min/jour, 40h/semaine — ITU-T H.870       |
+| Interface                 | Electron 28, Chart.js 4.4, chartjs-plugin-zoom          |
+| Daemon                    | Python 3.10+, NumPy, SciPy, soundcard, pycaw            |
+| Plateforme                | Windows 10 / 11 (x64)                                   |
 
 
 ## Développement
@@ -228,6 +234,7 @@ Non. Comme expliqué dans la section *Limites et précision*, les casques Blueto
 
 - [ ] **Correction de réponse en fréquence :** Intégration des courbes de réponse spécifiques à chaque casque ou écouteur pour un calcul SPL encore plus précis.
 - [ ] **Thèmes visuels :** Support des modes d'interface « Ghost » et « Transparent ».
+- [ ] **Optimisation des données :** Diviser le fichier d'historique CSV par jour.
 
 
 ## Crédits
