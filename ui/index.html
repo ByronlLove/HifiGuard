@@ -335,19 +335,19 @@ body.dragging #main{pointer-events:none;}
   <div id="body">
     <!-- SIDEBAR -->
     <nav id="sidebar">
-      <div class="logo">Dosimètre auditif<small>NIOSH / OMS</small></div>
-      <div class="nav-item active" data-page="today"><span class="nav-icon">◈</span>Aujourd'hui</div>
-      <div class="nav-item" data-page="calendar"><span class="nav-icon">☷</span>Historique</div>
-      <div class="nav-item" data-page="settings"><span class="nav-icon">⚙</span>Paramètres</div>
+      <div class="logo">HifiGuard<small data-i18n="app_title">Dosimètre auditif</small></div>
+      <div class="nav-item active" data-page="today"><span class="nav-icon">◈</span><span data-i18n="nav_today">Aujourd'hui</span></div>
+      <div class="nav-item" data-page="calendar"><span class="nav-icon">☷</span><span data-i18n="nav_history">Historique</span></div>
+      <div class="nav-item" data-page="settings"><span class="nav-icon">⚙</span><span data-i18n="nav_settings">Paramètres</span></div>
       <div class="sidebar-spacer"></div>
       <div id="live-panel">
         <div id="live-db">--</div>
-        <div id="live-label">dB(A) en cours</div>
+        <div id="live-label" data-i18n="live_label">dB(A) en cours</div>
         <div id="live-bar-wrap"><div id="live-bar"></div></div>
         <div id="live-doses">
-          <div class="mini-dose"><span>NIOSH</span><span id="live-niosh">--%</span></div>
-          <div class="mini-dose"><span>OMS/j</span><span id="live-oms-j">--%</span></div>
-          <div class="mini-dose"><span>OMS/7j</span><span id="live-oms-7j">--%</span></div>
+          <div class="mini-dose"><span data-i18n="dose_niosh">NIOSH</span><span id="live-niosh">--%</span></div>
+          <div class="mini-dose"><span data-i18n="dose_oms_day">OMS/j</span><span id="live-oms-j">--%</span></div>
+          <div class="mini-dose"><span data-i18n="dose_oms_week">OMS/7j</span><span id="live-oms-7j">--%</span></div>
         </div>
       </div>
     </nav>
@@ -556,19 +556,19 @@ body.dragging #main{pointer-events:none;}
 </script>
 <script>
 ;(function() {
-  // Vérifier si une langue est déjà configurée via l'API hifi
-  // Si oui, skip le setup. Si non, afficher le choix.
-  // On utilise un attribut data sur body pour signaler au renderer
-  // que le setup doit être vérifié.
   document.querySelectorAll('.lang-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const lang = btn.dataset.lang
       if (window.hifi) await window.hifi.setLanguage(lang)
       const el = document.getElementById('lang-setup')
       el.classList.add('done')
-      setTimeout(() => el.remove(), 350)
-      // Recharger l'interface avec la nouvelle locale
-      // Le renderer se charge de ça via init() qui lit la locale
+      
+      // ── MODIFICATION ICI : On rafraîchit la page ──
+      setTimeout(() => {
+        el.remove();
+        window.location.reload(); 
+      }, 350)
+      
     })
   })
 })()
