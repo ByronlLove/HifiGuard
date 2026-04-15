@@ -148,11 +148,17 @@ async function init() {
   MONTHS = L.months || []
   DAYS   = L.days   || []
   config = await window.hifi.getConfig()
+  
+  // ── TRADUCTION DE L'INTERFACE ──
+  applyTranslations()
+  // ───────────────────────────────
+
   // Si une langue est déjà configurée, masquer immédiatement le setup overlay
   if (config && config.language) {
     const setupEl = document.getElementById('lang-setup')
     if (setupEl) { setupEl.classList.add('done'); setTimeout(() => setupEl.remove(), 10) }
   }
+  
   suivi  = await window.hifi.getSuivi()
   suiviLastFetch = Date.now()
 
