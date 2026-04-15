@@ -8,7 +8,7 @@ const LOCALES_DIR = app.isPackaged
 const { spawn, execSync } = require('child_process')
 
 // ── Chemins ────────────────────────────────────────────────
-// En production, on doit impérativement écrire dans le dossier utilisateur (%APPDATA%)
+app.setPath('userData', path.join(app.getPath('appData'), 'HifiGuard'))
 const userDataPath = app.getPath('userData')
 const DATA_DIR     = path.join(userDataPath, 'data')
 
