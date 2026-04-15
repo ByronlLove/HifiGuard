@@ -1042,7 +1042,7 @@ async function renderSettings() {
   renderProfileList()
   renderRefreshModes()
   renderThresholds()
-  document.getElementById('btn-export').onclick          = () => window.hifi.exportData()
+  document.getElementById('btn-export').onclick = () => window.hifi.openDataFolder()
   document.getElementById('btn-purge-old').onclick       = async () => {
     showConfirm('Supprimer les données > 90 jours ?', 'Cette action est irréversible.', async () => {
     const r = await window.hifi.deleteOldData(90)
