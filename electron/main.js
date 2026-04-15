@@ -239,28 +239,19 @@ function getTrayZone(db_a, thresholds) {
   return 'danger'
 }
 
-const ZONE_COLORS = {
-  offline: { r: 100, g: 100, b: 100 },
-  safe:    { r: 34,  g: 197, b: 94  },
-  ok:      { r: 132, g: 204, b: 22  },
-  warn:    { r: 249, g: 115, b: 22  },
-  danger:  { r: 239, g: 68,  b: 68  },
-}
-
 function buildTrayIcon(zone) {
-  const { r, g, b } = ZONE_COLORS[zone] || ZONE_COLORS.offline
-  const size = 16
-  const buf  = Buffer.alloc(size * size * 4)
-  for (let i = 0; i < size * size; i++) {
-    const x      = (i % size) - size / 2 + 0.5
-    const y      = Math.floor(i / size) - size / 2 + 0.5
-    const inside = Math.sqrt(x * x + y * y) < size / 2 - 1
-    buf[i*4+0] = inside ? r : 0
-    buf[i*4+1] = inside ? g : 0
-    buf[i*4+2] = inside ? b : 0
-    buf[i*4+3] = inside ? 255 : 0
+  // On pointe directement vers le dossier contenant tes icônes 64x64
+  // Les zones possibles : 'safe', 'ok', 'warn', 'danger', 'offline'
+  const iconPath = path.join(__dirname, '..', 'assets', 'tray', `${zone}.ico`);
+  
+  // Petite sécurité : si tu as oublié de mettre un fichier .ico, on évite le crash
+  if (!fs.existsSync(iconPath)) {
+    console.warn(`[Tray] Icône introuvable : ${iconPath}`);
+    return nativeImage.createEmpty();
   }
-  return nativeImage.createFromBuffer(buf, { width: size, height: size })
+
+  // On dit à Electron de charger ton icône Windows
+  return nativeImage.createFromPath(iconPath);
 }
 
 let trayLastPoll = 0
@@ -301,7 +292,7 @@ function buildTrayMenu() {
     { type: 'separator' },
     { label: 'Relancer le daemon Python', click: () => restartDaemon() },
     { type: 'separator' },
-    { label: 'Exporter les données', click: () => exportData() },
+    { label: 'Ouvrir le dossier des données', click: () => shell.showItemInFolder(DATA_DIR) },
     { label: 'Paramètres', click: () => { showWindow(); mainWindow && mainWindow.webContents.send('navigate', 'settings') } },
     { type: 'separator' },
     { label: 'Quitter', click: () => { 
@@ -311,24 +302,6 @@ function buildTrayMenu() {
       } 
     }
   ])
-}
-// ══════════════════════════════════════════════════════════
-// EXPORT
-// ══════════════════════════════════════════════════════════
-async function exportData() {
-  const result = await dialog.showSaveDialog({
-    title: 'Exporter — HifiGuard',
-    defaultPath: `hifiguard_${new Date().toISOString().slice(0, 10)}`,
-    filters: [{ name: 'JSON', extensions: ['json'] }, { name: 'CSV', extensions: ['csv'] }]
-  })
-  if (result.canceled) return
-  const ext = path.extname(result.filePath)
-  if (ext === '.json') {
-    const out = { exported_at: new Date().toISOString(), config: readConfig(), suivi: readSuiviCached() }
-    fs.writeFileSync(result.filePath, JSON.stringify(out, null, 2))
-  } else if (ext === '.csv' && fs.existsSync(CSV_PATH)) {
-    fs.copyFileSync(CSV_PATH, result.filePath)
-  }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -511,6 +484,7 @@ ipcMain.handle('delete-day-data', async (_, dateKey) => {
       const kept   = lines.filter((l, i) => i === 0 || !l.startsWith(prefix))
       fs.writeFileSync(CSV_PATH, kept.join('\n'))
     }
+    restartDaemon()
     return { ok: true }
   } catch (e) { return { ok: false, error: e.message } }
 })
@@ -530,6 +504,7 @@ ipcMain.handle('delete-month-data', async (_, year, month) => {
       const kept  = lines.filter((l, i) => i === 0 || !l.startsWith(prefix))
       fs.writeFileSync(CSV_PATH, kept.join('\n'))
     }
+    restartDaemon()
     return { ok: true }
   } catch (e) { return { ok: false, error: e.message } }
 })
@@ -550,6 +525,7 @@ ipcMain.handle('delete-old-data', async (_, keepDays) => {
       const kept  = lines.filter((l, i) => i === 0 || l.slice(0, 10) >= cutoffStr)
       fs.writeFileSync(CSV_PATH, kept.join('\n'))
     }
+    restartDaemon()
     return { ok: true }
   } catch (e) { return { ok: false, error: e.message } }
 })
