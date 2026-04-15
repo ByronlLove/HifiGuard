@@ -114,5 +114,6 @@
   "setup_subtitle": "Choose your language to continue",
   "setup_en": "English",
   "setup_fr": "Français",
-  "setup_continue": "Continue"
+  "setup_continue": "Continue",
+  "fill_required": "Please fill all required fields with valid numbers."
 }
