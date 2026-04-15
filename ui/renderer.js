@@ -1171,41 +1171,6 @@ function formatDateFR(key) {
 }
 
 
-
-// ── Popups custom ────────────────────────────────────────
-function showConfirm(title, message, onConfirm) {
-  document.getElementById('modal-title').textContent   = title
-  document.getElementById('modal-message').textContent = message
-  document.getElementById('modal-overlay').classList.add('visible')
-  const btnOk     = document.getElementById('modal-ok')
-  const btnCancel = document.getElementById('modal-cancel')
-  const close = () => document.getElementById('modal-overlay').classList.remove('visible')
-  btnOk.onclick     = () => { close(); onConfirm() }
-  btnCancel.onclick = close
-}
-
-function showToast(message) {
-  let toast = document.getElementById('hifi-toast')
-  if (!toast) {
-    toast = document.createElement('div')
-    toast.id = 'hifi-toast'
-    document.body.appendChild(toast)
-  }
-  toast.textContent = message
-  toast.classList.add('visible')
-  clearTimeout(toast._t)
-  toast._t = setTimeout(() => toast.classList.remove('visible'), 3000)
-}
-
-// Boutons métrique calendrier
-document.querySelectorAll('.metric-btn').forEach(el => {
-  el.addEventListener('click', () => {
-    calMetric = el.dataset.metric
-    document.querySelectorAll('.metric-btn').forEach(b => b.classList.toggle('active', b.dataset.metric === calMetric))
-    if (calView === 'month') renderViewMonth()
-  })
-})
-
 // ══════════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════════
