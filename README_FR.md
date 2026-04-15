@@ -216,10 +216,19 @@ Non. Le daemon Python est optimisé pour être extrêmement léger. Bien qu'il c
 Non. Comme expliqué dans la section *Limites et précision*, les casques Bluetooth possèdent leur propre amplificateur interne et processeur de signal numérique (DSP). Windows ne leur envoie pas un signal électrique, mais des données numériques. HifiGuard ne peut donc pas appliquer ses calculs de tension et d'impédance.
 
 
-## Feuille de route
+## To Do
 
 - [ ] **Correction de réponse en fréquence :** Intégration des courbes de réponse spécifiques à chaque casque ou écouteur pour un calcul SPL encore plus précis.
 - [ ] **Thèmes visuels :** Support des modes d'interface « Ghost » et « Transparent ».
+
+
+## Crédits
+
+**ByronlLove** — Conception de l'architecture logicielle et du moteur d'analyse audio, 
+définition des modèles de calcul dosimétrique, conception de l'expérience utilisateur (UI/UX), 
+tests (QA) et déploiement.
+
+Code source implémenté avec l'assistance de Claude (Anthropic).
 
 
 ## Licence
