@@ -115,5 +115,21 @@
   "setup_en": "English",
   "setup_fr": "Français",
   "setup_continue": "Continue",
-  "fill_required": "Please fill all required fields with valid numbers."
+  "fill_required": "Please fill all required fields with valid numbers.",
+  "btn_save": "Save",
+  "btn_clear": "Clear",
+  "btn_apply": "Apply",
+  "refresh_free": "Free choice",
+  "settings_colors": "Tray Icon Colors — dB(A) Thresholds",
+  "colors_hint": "Level at which each color appears in the system tray.",
+  "data_daemon_title": "Data & Daemon",
+  "btn_open_data": "Open data folder",
+  "btn_restart_daemon": "Restart daemon",
+  "delete_hint": "You can also right-click a day or month in the calendar to delete its data.",
+  "btn_delete_old": "Delete data > 90 days",
+  "purge_confirm_title": "Delete data > 90 days?",
+  "purge_confirm_msg": "This action is irreversible.",
+  "purge_success": "Data older than 90 days deleted.",
+  "delete_day_msg": "All measurements for this day will be permanently deleted.",
+  "delete_month_msg": "All measurements for this month will be permanently deleted."
 }
