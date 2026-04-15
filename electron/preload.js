@@ -8,7 +8,7 @@ contextBridge.exposeInMainWorld('hifi', {
   // secondsPerBucket : 0 = auto (max 600 pts), >0 = résolution fixe en secondes
   // Le downsampling est fait dans le main process — le renderer reçoit des données légères
   readCsvRange:    (from, to, spb = 0)      => ipcRenderer.invoke('read-csv-range', from, to, spb),
-  exportData:      ()                       => ipcRenderer.invoke('export-data'),
+  openDataFolder: () => ipcRenderer.invoke('open-data-folder'),
   restartDaemon:   ()                       => ipcRenderer.invoke('restart-daemon'),
   onStateUpdate:   (cb)                     => ipcRenderer.on('state-update', (_, s) => cb(s)),
   onNavigate:      (cb)                     => ipcRenderer.on('navigate', (_, page) => cb(page)),
