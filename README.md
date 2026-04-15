@@ -114,6 +114,7 @@ HifiGuard/
 ├── assets/             Icons and screenshots
 ├── build.bat           One-click Windows build script
 └── package.json
+└── package-lock.json
 ```
 
 
