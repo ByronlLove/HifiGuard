@@ -1069,12 +1069,19 @@ function updateMaxSplPreview() {
 
 async function saveProfile() {
   const name = document.getElementById('f-name').value.trim()
+  // On récupère les valeurs de façon plus sécurisée
   const sens = parseFloat(document.getElementById('f-sens').value)
   const unit = document.getElementById('f-sens-unit').value
   const imp  = parseFloat(document.getElementById('f-imp').value)
   const vout = parseFloat(document.getElementById('f-vout').value)
   const desc = document.getElementById('f-desc').value.trim()
-  if (!name || !sens || !imp || !vout) { showToast('Please fill all required fields.'); return }
+  
+  // isNaN permet de vérifier si c'est "Not a Number" de manière plus fiable
+  if (!name || isNaN(sens) || isNaN(imp) || isNaN(vout)) { 
+    showToast(L.fill_required || 'Veuillez remplir tous les champs avec des nombres valides.'); 
+    return 
+  }
+  
   config = await window.hifi.getConfig()
   config.profiles[name] = { sensitivity:sens, sensitivity_unit:unit, impedance:imp, dac_vout:vout, description:desc }
   await window.hifi.saveConfig(config)
