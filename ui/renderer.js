@@ -601,9 +601,9 @@ function zoomToLast10Min(chart) {
 // ══════════════════════════════════════════════════════════
 function renderDoseBars(doses) {
   document.getElementById('dose-bars').innerHTML = [
-    { name:'NIOSH',    val: doses ? doses.niosh  : 0, color:COLORS.niosh, sub:'85 dB(A)/8h'     },
-    { name: L.dose_oms_day || 'OMS/jour', val: doses ? doses.omsj   : 0, color:COLORS.omsj,  sub:'80 dB(A)/342min' },
-    { name: L.dose_oms_week || 'OMS/7j',   val: doses ? doses.oms7j  : 0, color:'#a855f7',    sub:'80 dB(A)/40h'   },
+    { name: L.dose_niosh || 'NIOSH',    val: doses ? doses.niosh  : 0, color:COLORS.niosh, sub: L.desc_niosh || '85 dB(A)/8h'      },
+    { name: L.dose_oms_day || 'OMS/jour', val: doses ? doses.omsj   : 0, color:COLORS.omsj,  sub: L.desc_oms_day || '80 dB(A)/342min' },
+    { name: L.dose_oms_week || 'OMS/7j',   val: doses ? doses.oms7j  : 0, color:'#a855f7',    sub: L.desc_oms_week || '80 dB(A)/40h'   },
   ].map(it => {
     const pct = Math.min(it.val || 0, 100)
     const col = it.val > 80 ? 'var(--danger)' : it.val > 50 ? 'var(--warn)' : it.color
@@ -896,7 +896,7 @@ function renderViewMonth() {
     const metricVal   = getDayMetricValue(key)
     const metricStr   = metricVal !== null ? formatMetricValue(metricVal) : ''
     const labelOms = L.dose_oms_day || 'OMS/j';
-    grid.innerHTML += `<div class="cal-day ${cls}${isToday?' today':''}" data-key="${key}" title="${key} — ${labelOms}: ${dose.toFixed(1)}%">`
+    grid.innerHTML += `<div class="cal-day ${cls}${isToday?' today':''}" data-key="${key}" title="${key} — ${L.dose_oms_day || 'OMS/j'}: ${dose.toFixed(1)}%">`
       <div>${d}</div>
       ${data ? `<div class="day-dot" style="background:${dot}"></div>` : ''}
       ${metricStr ? `<div class="day-metric">${metricStr}</div>` : ''}
@@ -921,7 +921,7 @@ async function renderViewDay(dateKey) {
   const data = suivi[dateKey] || {}
   document.getElementById('day-stats-grid').innerHTML = [
     { v:(data.dose_niosh_pct    || 0).toFixed(1)+'%',    l: L.dose_niosh || 'NIOSH',       sub: L.desc_niosh || '85 dB(A)/8h'        },
-    { v:(data.dose_who_day_pct  || 0).toFixed(1)+'%',    l: L.dose_oms_day || 'OMS/jour',  sub: L.desc_oms_day || '80 dB(A)/342min'  },
+    { v:(data.dose_who_day_pct  || 0).toFixed(1)+'%',    l: L.dose_oms_day || 'OMS/jour',  sub: L.desc_oms_day || '80 dB(A)/342min'    },
     { v:(data.dose_who_week_pct || 0).toFixed(1)+'%',    l: L.label_oms_contrib || 'OMS contrib.', sub: L.desc_oms_week || 'Contribution hebdo' },
     { v:(data.max_db_a          || 0).toFixed(1)+' dB',  l: L.today_peak || 'Pic',          sub: L.desc_peak || 'dB(A) max'          },
     { v:(data.minutes_above_80  || 0).toFixed(1)+' min', l:'>80 dB(A)',    sub:'' },
