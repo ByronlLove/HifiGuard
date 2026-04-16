@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════
-// HIFIGUARD — Renderer
+// HIFIGUARD - Renderer
 // ══════════════════════════════════════════════════════════
 Chart.defaults.color = '#64748b'
 Chart.defaults.borderColor = '#2e3350'
@@ -8,7 +8,7 @@ Chart.register(ChartZoom)
 
 // ── État ─────────────────────────────────────────────────
 let currentPage = 'today'
-let L = {}  // locale strings
+let L = {}  
 let calView = 'year', calYear = new Date().getFullYear()
 let calMonth = new Date().getMonth(), calDay = null
 let config = null, suivi = {}
@@ -47,7 +47,7 @@ let DAYS   = []
 let chartTodayDirty = false
 let chartDayDirty   = false
 let followMode = false   // scroll auto quand ancré à droite
-let hiresMode  = false   // affiche hiresBuffer (10min précis) au lieu de sessionData
+let hiresMode  = false   
 
 function applyTranslations() {
   document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -255,13 +255,13 @@ document.querySelectorAll('.metric-btn').forEach(el => {
 })
 
 // ══════════════════════════════════════════════════════════
-// LIVE — deux voies découplées
+// LIVE - deux voies découplées
 //
-// Voie 1 : push via state-update (main → renderer, sans poll)
-//          → met à jour l'UI live immédiatement
+// Voie 1 : push via state-update (main -> renderer, sans poll)
+//          -> met à jour l'UI live immédiatement
 // Voie 2 : fallback poll à 1s si le push ne passe pas
 //          (fenêtre en arrière-plan, etc.)
-// Le chart TODAY est marqué dirty → redessiné par la RAF loop
+// Le chart TODAY est marqué dirty -> redessiné par la RAF loop
 // ══════════════════════════════════════════════════════════
 let livePollInterval = null
 
@@ -275,7 +275,7 @@ function startLivePoll() {
   }, 1000)
 }
 
-// Push depuis le main (prioritaire, ~250ms en mode focus)
+// Push depuis le main 
 window.hifi.onStateUpdate(state => {
   if (!isPaused) handleLiveState(state)
 })
@@ -329,9 +329,7 @@ function updateLive(state) {
 // null = vrai trou temporel. 0 = silence musique → reste tracé à 0.
 // ══════════════════════════════════════════════════════════
 // Parse un timestamp ISO local (sans Z, sans offset) en millisecondes locaux.
-// Évite que JS interprète "2026-04-12T22:01:22" comme UTC au lieu d'heure locale.
 function localIsoToMs(ts) {
-  // "2026-04-12T22:01:22.123" ou "2026-04-12T22:01:22"
   const [datePart, timePart] = ts.split('T')
   const [y, mo, d] = datePart.split('-').map(Number)
   const [h, mi, sPart = '0'] = timePart.split(':')
@@ -393,11 +391,8 @@ function checkFollowMode(chart) {
   const total   = chart.data.labels.length - 1
   followMode    = (total - xScale.max) <= 3
 
-  // Si on pan vers la gauche en mode hires → sortir du mode hires
-  // et revenir aux sessionData (journée entière)
   if (!followMode && hiresMode) {
     hiresMode = false
-    // Copie des sessionData pour éviter les mutations partagées
     chart.data.labels           = [...sessionData.labels]
     chart.data.datasets[0].data = [...sessionData.dba]
     chart.data.datasets[1].data = [...sessionData.niosh]
@@ -538,7 +533,6 @@ function appendTodayPoint(state) {
 
   sessionData.labels.push(label)
   sessionData.dba.push(sessionBucket.maxDba > 0 ? sessionBucket.maxDba : 0)
-  // ── COURBES EN TEMPS RÉEL ICI AUSSI ──
   sessionData.niosh.push(state.dose_niosh || null)
   sessionData.omsj.push(state.dose_who_j  || null)
 
@@ -561,7 +555,7 @@ function appendTodayPoint(state) {
   }
 }
 
-// Alimente le hiresBuffer en permanence — appelé pour chaque state reçu
+// Alimente le hiresBuffer en permanence - appelé pour chaque state reçu
 // indépendamment de la page visible ou du mode tray
 function feedHiresBuffer(state) {
   const nowTs  = state.ts || new Date().toISOString()
@@ -666,11 +660,11 @@ function buildLegend(containerId, chart, datasets) {
 }
 
 // ══════════════════════════════════════════════════════════
-// CHART DAY — recréé à chaque ouverture de jour
+// CHART DAY - recréé à chaque ouverture de jour
 // (destroy + recreate garantit les bonnes dimensions du canvas)
 // ══════════════════════════════════════════════════════════
 function initChartDay() {
-  // Ne rien créer au boot — le canvas est dans une page cachée (0x0)
+  // Ne rien créer au boot - le canvas est dans une page cachée (0x0)
   // createChartDay() est appelé dans renderViewDay() après que le DOM est visible
 }
 
@@ -678,7 +672,7 @@ function createChartDay() {
   if (chartDay) { chartDay.destroy(); chartDay = null }
   const canvas   = document.getElementById('chart-day')
   const ctx      = canvas.getContext('2d')
-  // Les 4 datasets sont déclarés dès la création — fillDayChart ne fait que remplir.
+  // Les 4 datasets sont déclarés dès la création - fillDayChart ne fait que remplir.
   // Ça évite les push() dynamiques qui cassent le rendu Chart.js.
   const datasets = [
     { label:'dB(A)',    data:[], borderColor:COLORS.dba,             borderWidth:1.5, pointRadius:0, tension:0.2, spanGaps:false, yAxisID:'y'  },
@@ -707,7 +701,6 @@ function createChartDay() {
 }
 
 // Remplit le chart day avec des données déjà downsamplées par le main process
-// Aucun traitement lourd ici — juste insertion des labels/data + insertGaps
 function fillDayChart(rows, stats) {
   const withGaps = insertGaps(rows)
   chartDay.data.labels           = withGaps.map(r => r.ts ? r.ts.slice(11, 19) : null)
@@ -752,7 +745,7 @@ function renderDayStats(stats) {
 // ══════════════════════════════════════════════════════════
 // SÉLECTEUR DE RÉSOLUTION
 // La résolution est transmise au main process via readCsvRange
-// → le downsampling se fait là-bas, pas ici
+// -> le downsampling se fait là-bas, pas ici
 // ══════════════════════════════════════════════════════════
 function setDayResolution(spb) {
   dayResolution = spb
@@ -1071,7 +1064,6 @@ function updateMaxSplPreview() {
   const vout = parseFloat(document.getElementById('f-vout').value)
   const el   = document.getElementById('f-maxspl')
   
-  // On récupère le texte traduit, ou on met 'MAX SPL calculé' par défaut
   const prefix = L.max_spl_calc || 'MAX SPL calculé'
 
   if (sens && imp && vout) {
@@ -1144,7 +1136,6 @@ async function saveRefresh() {
   await window.hifi.saveConfig(config)
 }
 
-// On intègre la traduction dynamique directement dans la fonction
 function renderThresholds() {
   const t = getThresholds()
   const defs = [
@@ -1235,7 +1226,6 @@ async function init() {
   renderDoseBars(null)
   await reloadTodayFromCSV()
 
-  // App prête — masquer le loader
   const appLoader = document.getElementById('app-loader')
   if (appLoader) { appLoader.classList.add('done'); setTimeout(() => appLoader.remove(), 350) }
 
