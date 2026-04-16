@@ -16,6 +16,8 @@ HifiGuard is natively compatible with system equalisation solutions such as [Equ
 
 ## Interface overview
 
+![Main interface](assets/screenshots/demo.gif)
+
 ![Main interface](assets/screenshots/today.png)
 
 ![Historical calendar](assets/screenshots/calendar.png)
