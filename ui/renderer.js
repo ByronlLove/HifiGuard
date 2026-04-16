@@ -189,7 +189,7 @@ document.getElementById('ctx-delete-day').addEventListener('click', async () => 
   const [y,m,d] = key.split('-')
   hideCtxMenu()
   showConfirm(
-    `${L.profile_delete || 'Supprimer'} le ${parseInt(d)} ${MONTHS[parseInt(m)-1]} ${y} ?`,
+    `${L.profile_delete || 'Supprimer'} : ${parseInt(d)} ${MONTHS[parseInt(m)-1]} ${y} ?`,
     L.delete_day_msg || 'Toutes les mesures de ce jour seront effacées définitivement.',
     async () => {
       const r = await window.hifi.deleteDayData(key)
@@ -932,8 +932,8 @@ async function renderViewDay(dateKey) {
     { v:(data.minutes_above_85  || 0).toFixed(1)+' min', l:'>85 dB(A)',    sub:'' },
   ].map(s => `<div class="stat-card"><div class="stat-val">${s.v}</div><div class="stat-label">${s.l}</div>${s.sub ? `<div class="stat-sub">${s.sub}</div>` : ''}</div>`).join('')
   
-  document.getElementById('day-chart-title').textContent = (L.cal_curves || 'Courbes du ') + ' ' + formatDateFR(dateKey)
-
+  document.getElementById('day-chart-title').textContent = (L.cal_curves || 'Curves') + ' — ' + formatDateFR(dateKey)
+  
   const loadingEl = document.getElementById('loading-day')
   if (loadingEl) loadingEl.classList.remove('hidden')
 
