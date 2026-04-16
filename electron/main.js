@@ -197,7 +197,7 @@ async function readCsvRangeStreamed(dateFrom, dateTo, secondsPerBucket) {
       }
 
       if (useFixed) {
-        const tSec = Math.floor(new Date(ts).getTime() / 1000 / secondsPerBucket)
+        const tSec = Math.floor(Date.parse(ts + '+00:00') / 1000 / secondsPerBucket)
         if (!buckets.has(tSec)) buckets.set(tSec, { sumA: 0, sumZ: 0, countA: 0, countZ: 0, maxA: 0, maxZ: 0, niosh: 0, whoDay: 0, ts })
         const b = buckets.get(tSec)
         if (db_a > 0) { b.sumA += db_a; b.countA++; if (db_a > b.maxA) b.maxA = db_a }
