@@ -8,26 +8,32 @@ const LOCALES_DIR = app.isPackaged
 const { spawn, execSync, exec } = require('child_process')
 
 // ── Chemins ────────────────────────────────────────────────
-app.setPath('userData', path.join(app.getPath('appData'), 'HifiGuard'))
-const userDataPath = app.getPath('userData')
-const DATA_DIR     = path.join(userDataPath, 'data')
+const IS_PROD = app.isPackaged;
 
-const STATE_PATH   = path.join(DATA_DIR, 'state.json')
-const CONFIG_PATH  = path.join(DATA_DIR, 'config.json')
-const JSON_PATH    = path.join(DATA_DIR, 'suivi_audio.json')
-const CSV_PATH     = path.join(DATA_DIR, 'historique.csv')
+let DATA_DIR;
+if (IS_PROD) {
+  // En production (.exe final), on enregistre dans AppData/Roaming/HifiGuard/data
+  app.setPath('userData', path.join(app.getPath('appData'), 'HifiGuard'));
+  DATA_DIR = path.join(app.getPath('userData'), 'data');
+} else {
+  // En développement (npm start), on enregistre dans un dossier "data" à la racine du projet
+  DATA_DIR = path.join(__dirname, '..', 'data');
+}
 
-// En production (electron-builder), le daemon est compilé en .exe via PyInstaller
-// et placé dans resources/daemon/hifiguard.exe
+const STATE_PATH   = path.join(DATA_DIR, 'state.json');
+const CONFIG_PATH  = path.join(DATA_DIR, 'config.json');
+const JSON_PATH    = path.join(DATA_DIR, 'suivi_audio.json');
+const CSV_PATH     = path.join(DATA_DIR, 'historique.csv');
+
+// En production, le daemon est compilé en .exe via PyInstaller
 // En développement, on lance le .py directement avec python
-const IS_PROD      = app.isPackaged
 const DAEMON_PATH  = IS_PROD
   ? path.join(process.resourcesPath, 'daemon', 'hifiguard-daemon.exe')
-  : path.join(__dirname, '..', 'daemon', 'hifiguard.py')
-const PYTHON_CMD   = IS_PROD ? null : 'python'
+  : path.join(__dirname, '..', 'daemon', 'hifiguard.py');
+const PYTHON_CMD   = IS_PROD ? null : 'python';
 
 // Création du dossier de données s'il n'existe pas
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 // ── Constantes normes (miroir de hifiguard.py) ───────────────
 const NIOSH_CL    = 85.0    // Criterion Level dB(A)
