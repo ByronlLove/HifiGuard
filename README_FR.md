@@ -42,7 +42,7 @@ HifiGuard est nativement compatible avec des equalizers système telles qu'[Equa
 - Moyenne et médiane calculées uniquement sur les mesures avec son (silences exclus)
 - Clic droit sur un jour ou un mois dans le calendrier pour supprimer ses données
 - Icône tray colorée selon le niveau (vert / jaune / orange / rouge)
-- Compatible Equalizer APO / Peace — la capture loopback prend en compte l'EQ logiciel appliqué
+- Compatible Equalizer APO / Peace - la capture loopback prend en compte l'EQ logiciel appliqué
 - Redémarrage automatique du daemon en cas de déconnexion du périphérique audio (jusqu'à 10 tentatives)
 - Lancement au démarrage de Windows
 - Interface en français et en anglais
@@ -52,8 +52,8 @@ HifiGuard est nativement compatible avec des equalizers système telles qu'[Equa
 
 | Version      | Fichier                                                                                                                         | Taille | Prérequis                  |
 |--------------|---------------------------------------------------------------------------------------------------------------------------------|--------|----------------------------|
-| Installateur | [`HifiGuard-Setup-1.0.0.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.0.0/HifiGuard-Setup-1.0.0.exe)       | 125 Mo | Aucun — Python est intégré |
-| Portable     | [`HifiGuard-1.0.0-portable.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.0.0/HifiGuard-1.0.0-portable.exe) | 123 Mo | Aucun — Python est intégré |
+| Installateur | [`HifiGuard-Setup-1.0.0.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.0.0/HifiGuard-Setup-1.0.0.exe)       | 125 Mo | Aucun - Python est intégré |
+| Portable     | [`HifiGuard-1.0.0-portable.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.0.0/HifiGuard-1.0.0-portable.exe) | 123 Mo | Aucun - Python est intégré |
 
 ### Premier lancement
 
@@ -114,7 +114,7 @@ HifiGuard/
 ├── locales/            Traductions de l'interface
 │   ├── en.json
 │   └── fr.json
-├── data/               Données générées — non commited
+├── data/               Données générées - non commited
 │   ├── config.json
 │   ├── state.json
 │   ├── suivi_audio.json
@@ -128,7 +128,7 @@ HifiGuard/
 
 ## Limites et précision
 
-HifiGuard mesure le **signal numérique** envoyé par Windows à votre casque. Les mesures sont des **approximations hautes** — elles correspondent au niveau maximal théorique que votre casque peut produire, en supposant que votre profil est correctement configuré.
+HifiGuard mesure le **signal numérique** envoyé par Windows à votre casque. Les mesures sont des **approximations hautes** - elles correspondent au niveau maximal théorique que votre casque peut produire, en supposant que votre profil est correctement configuré.
 
 Le calcul reposant sur l'architecture audio de Windows, certaines configurations matérielles ou logicielles faussent ou bloquent les mesures :
 
@@ -148,7 +148,7 @@ Le calcul reposant sur l'architecture audio de Windows, certaines configurations
 | Intervalle de mesure      | Blocs audio de 25 ms (configurable)                     |
 | Enregistrement CSV        | 1 ligne par seconde (pic de la seconde écoulée)         |
 | Norme NIOSH               | 85 dB(A), 8h, taux d'échange 3 dB (NIOSH 1998)          |
-| Norme OMS                 | 80 dB(A), 342 min/jour, 40h/semaine — ITU-T H.870       |
+| Norme OMS                 | 80 dB(A), 342 min/jour, 40h/semaine - ITU-T H.870       |
 | Interface                 | Electron 28, Chart.js 4.4, chartjs-plugin-zoom          |
 | Daemon                    | Python 3.10+, NumPy, SciPy, soundcard, pycaw            |
 | Plateforme                | Windows 10 / 11 (x64)                                   |
@@ -184,7 +184,7 @@ Appuyez sur **F12** pour ouvrir la console DevTools.
 ```bash
 git clone https://github.com/ByronlLove/HifiGuard.git
 
-# Windows — double-cliquer sur build.bat
+# Windows - double-cliquer sur build.bat
 # ou en ligne de commande :
 
 # 1. Créer et activer un environnement virtuel Python
@@ -239,7 +239,7 @@ Non. Comme expliqué dans la section *Limites et précision*, les casques Blueto
 
 ## Crédits
 
-**ByronlLove** — Conception de l'architecture logicielle et du moteur d'analyse audio, 
+**ByronlLove** - Conception de l'architecture logicielle et du moteur d'analyse audio, 
 définition des modèles de calcul dosimétrique, conception de l'expérience utilisateur (UI/UX), 
 tests (QA) et déploiement.
 
@@ -248,7 +248,7 @@ Code source et traduction implémentés avec l'assistance de Claude (Anthropic).
 
 ## Licence
 
-AGPL-3.0 — voir [LICENSE](LICENSE)
+AGPL-3.0 - voir [LICENSE](LICENSE)
 
 
 ## Avertissement légal
