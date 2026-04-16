@@ -98,11 +98,10 @@ function stopDaemon() {
     daemonProcess.kill(); 
     daemonProcess = null;
   }
-  // FORCE LE NETTOYAGE : Élimine tout processus zombie qui verrouille les fichiers
   try {
     exec('taskkill /F /IM hifiguard-daemon.exe /T', { stdio: 'ignore' });
-    console.log('[System] Daemon nettoyé de force.');
-  } catch (e) {}
+  } catch (e) {
+  }
 }
 let restartAttempts = 0;
 const MAX_RESTARTS = 10;
@@ -273,7 +272,6 @@ function getTrayZone(db_a, thresholds) {
 }
 
 function buildTrayIcon(zone) {
-  // On définit le dossier selon si on est en dév ou buildé (process.resourcesPath)
   const baseDir = app.isPackaged 
     ? path.join(process.resourcesPath, 'assets', 'tray')
     : path.join(__dirname, '..', 'assets', 'tray');
@@ -282,14 +280,9 @@ function buildTrayIcon(zone) {
   
   if (!fs.existsSync(iconPath)) {
     console.warn(`[Tray] Icône introuvable : ${iconPath}`);
-    // Sécurité : on tente de charger l'icône offline si la couleur manque
     return nativeImage.createFromPath(path.join(baseDir, 'offline.ico'));
   }
 
-  return nativeImage.createFromPath(iconPath);
-}
-
-  // On dit à Electron de charger ton icône Windows
   return nativeImage.createFromPath(iconPath);
 }
 
