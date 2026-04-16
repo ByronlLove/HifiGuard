@@ -373,8 +373,7 @@ RETRY_DELAY_S  = 2.0     # secondes entre chaque tentative
 
 def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
     """
-    Boucle de capture audio. Lève une exception si le device est perdu
-    (récupérable) ou KeyboardInterrupt pour arrêt propre.
+    Boucle de capture audio optimisée avec "Hot Reload" des paramètres matériels.
     """
     python_ms         = refresh_cfg['python_ms']
     BLOCK_SIZE        = max(int(FS * python_ms / 1000), 256)
@@ -391,33 +390,51 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
     mic     = sc.get_microphone(id=speaker.name, include_loopback=True)
     print(f'Monitoring : {mic.name}')
 
+    # On récupère le dictionnaire du profil actuel pour détecter les changements internes
+    current_profiles = config.get('profiles', {})
+    profile = current_profiles.get(profile_name, {})
+
     with mic.recorder(samplerate=FS, blocksize=BLOCK_SIZE) as recorder:
         while True:
             # ── MODE ATTENTE (Si aucun profil n'est configuré) ─────────
             if not profile_name:
-                time.sleep(1.0) # Ne consomme pas de processeur
+                time.sleep(1.0)
                 stats = tracker.today_stats()
                 write_state(0.0, 0.0, 0.0, stats, tracker.weekly_who_dose(), "En attente de configuration...", refresh_cfg)
                 
-                # On vérifie toutes les secondes si l'utilisateur a créé un profil
                 try:
                     new_cfg = load_config()
                     if new_cfg.get('active_profile') and new_cfg.get('active_profile') in new_cfg.get('profiles', {}):
-                        return 'config_changed' # Redémarre l'écoute !
-                except Exception:
-                    pass
+                        return 'config_changed'
+                except Exception: pass
                 continue
             # ───────────────────────────────────────────────────────────
 
+            # ── VÉRIFICATION DE LA CONFIG (Toutes les ~5 secondes) ─────
             if tracker._frame_count % max(1, int(5000/python_ms)) == 0:
                 try:
                     new_cfg = load_config()
+                    new_profile_name = new_cfg.get('active_profile')
+
+                    # CAS 1 : Changement structurel -> REDÉMARRAGE COMPLET
+                    # (Si on change de mode de rafraîchissement ou de nom de profil)
                     if new_cfg.get('refresh_mode') != config.get('refresh_mode') or \
-                       new_cfg.get('active_profile') != config.get('active_profile'):
-                        return 'config_changed'   # signal pour relancer proprement
+                       new_profile_name != profile_name:
+                        return 'config_changed'
+
+                    # CAS 2 : Changement de paramètres matériels -> MISE À JOUR À CHAUD
+                    # (Si c'est le même profil mais que l'impédance/sensibilité/Vout a changé)
+                    if new_profile_name:
+                        new_profile_data = new_cfg.get('profiles', {}).get(new_profile_name)
+                        if new_profile_data != profile:
+                            profile = new_profile_data
+                            # On recalcule MAX_SPL sans couper le flux audio
+                            MAX_SPL, sens_dbmw = compute_max_spl(profile)
+                            print(f'\n[Live] Paramètres mis à jour : {MAX_SPL:.1f} dB (Sensi: {sens_dbmw:.1f})')
                 except Exception:
                     pass
 
+            # ── CAPTURE ET CALCULS ─────────────────────────────────────
             vol_db   = volume.GetMasterVolumeLevel()
             is_muted = (vol_db < -60)
 
@@ -427,6 +444,7 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
 
             rms_raw = np.sqrt(np.mean(data**2))
 
+            # Gestion du silence
             if rms_raw < SILENCE_THRESHOLD or is_muted:
                 if time.time() - tracker._csv_buf_ts >= 1.0:
                     tracker._flush_csv(profile_name)
@@ -435,11 +453,13 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
                 write_state(0.0, 0.0, vol_db, stats, week_who, profile_name, refresh_cfg)
                 continue
 
+            # Calcul dB(Z)
             db_z = max(0.0, min(
                 MAX_SPL + 20*np.log10(rms_raw + 1e-12) + vol_db,
                 CEILING_DB
             ))
 
+            # Calcul dB(A)
             data_a, zi = signal.lfilter(b, a, data, zi=zi)
             rms_a = np.sqrt(np.mean(data_a**2))
             db_a  = max(0.0, min(
@@ -447,11 +467,13 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
                 CEILING_DB
             ))
 
+            # Enregistrement des données
             tracker.record(db_z, db_a, vol_db, profile_name, seconds_per_block, save_every)
             stats    = tracker.today_stats()
             week_who = tracker.weekly_who_dose()
             write_state(db_a, db_z, vol_db, stats, week_who, profile_name, refresh_cfg)
 
+            # Affichage console (Daemon)
             info = (
                 f'\r{risk_label(db_a)}{bar(db_a)} '
                 f'Z:{db_z:5.1f} A:{db_a:5.1f} dB(A) | '
