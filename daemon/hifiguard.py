@@ -6,20 +6,37 @@ Sources : NIOSH 1998 (REL 85 dB, exchange rate 3 dB)
 """
 
 import sys
+import os
+from pathlib import Path
+
+if getattr(sys, 'frozen', False):
+    try:
+        app_root = Path(os.environ.get('APPDATA', '')) / "HifiGuard"
+        app_root.mkdir(parents=True, exist_ok=True)
+        log_file = app_root / "daemon_errors.log"
+        # Mode 'a' pour ajouter à la suite, buffering=1 pour écrire en temps réel
+        f = open(log_file, 'a', encoding='utf-8', buffering=1)
+        sys.stdout = f
+        sys.stderr = f
+    except Exception:
+        pass 
+
 sys.coinit_flags = 2
 
-# Fix encodage Windows
 if hasattr(sys.stdout, 'reconfigure'):
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception: pass
 if hasattr(sys.stderr, 'reconfigure'):
-    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    try:
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception: pass
 
 import comtypes
 import soundcard as sc
 import numpy as np
 import json
 import csv
-import os
 import time
 from datetime import datetime, timedelta
 import scipy.signal as signal
@@ -28,7 +45,7 @@ from pycaw.pycaw import AudioUtilities
 # ══════════════════════════════════════════════════════════
 # CHEMINS
 # ══════════════════════════════════════════════════════════
-# On pointe vers le dossier APPDATA officiel de Windows
+# On pointe vers le dossier APPDATA de Windows
 APPDATA_DIR = os.environ.get('APPDATA')
 DATA_DIR    = os.path.join(APPDATA_DIR, 'HifiGuard', 'data')
 
