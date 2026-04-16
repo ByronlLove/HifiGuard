@@ -655,7 +655,7 @@ function buildLegend(containerId, chart, datasets) {
     pauseEl.className = 'legend-item'
     pauseEl.id = 'legend-pause-item'
     pauseEl.style.marginLeft = 'auto'
-    pauseEl.innerHTML = `<span class="legend-label" style="color:var(--muted)">${L.pause_hint || '⏵ Espace = Pause'}</span>`
+    pauseEl.innerHTML = `<span class="legend-label" data-i18n="pause_hint" style="color:var(--muted)">${L.pause_hint || '⏵ Space = Pause'}</span>`
     pauseEl.addEventListener('click', togglePause)
     c.appendChild(pauseEl)
   }
