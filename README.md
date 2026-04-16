@@ -42,7 +42,7 @@ HifiGuard is natively compatible with system equalisation solutions such as [Equ
 - Average and median calculated on measurements with sound only (silences excluded)
 - Right-click on a day or month in the calendar to delete its data
 - Colour-coded tray icon by level (green / yellow / orange / red)
-- Compatible with Equalizer APO / Peace — the loopback capture accounts for applied software EQ
+- Compatible with Equalizer APO / Peace - the loopback capture accounts for applied software EQ
 - Automatic daemon restart on audio device disconnection (up to 10 attempts)
 - Launch at Windows startup
 - French and English interface
@@ -52,8 +52,8 @@ HifiGuard is natively compatible with system equalisation solutions such as [Equ
 
 | Version   | File                                                                                                                            | Size   | Requirements             |
 |-----------|---------------------------------------------------------------------------------------------------------------------------------|--------|--------------------------|
-| Installer | [`HifiGuard-Setup-1.0.0.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.0.0/HifiGuard-Setup-1.0.0.exe)       | 125 MB | None — Python is bundled |
-| Portable  | [`HifiGuard-1.0.0-portable.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.0.0/HifiGuard-1.0.0-portable.exe) | 123 MB | None — Python is bundled |
+| Installer | [`HifiGuard-Setup-1.0.0.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.0.0/HifiGuard-Setup-1.0.0.exe)       | 125 MB | None - Python is bundled |
+| Portable  | [`HifiGuard-1.0.0-portable.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.0.0/HifiGuard-1.0.0-portable.exe) | 123 MB | None - Python is bundled |
 
 
 ### First launch
@@ -106,7 +106,7 @@ HifiGuard/
 ├── locales/            Interface translations
 │   ├── en.json
 │   └── fr.json
-├── data/               Generated data — not committed
+├── data/               Generated data - not committed
 │   ├── config.json
 │   ├── state.json
 │   ├── suivi_audio.json
@@ -120,7 +120,7 @@ HifiGuard/
 
 ## Limits and precision
 
-HifiGuard measures the **digital signal** sent by Windows to your headphones. The measurements are **upper-bound approximations** — they correspond to the maximum theoretical level your headphones can produce, assuming your profile is correctly configured.
+HifiGuard measures the **digital signal** sent by Windows to your headphones. The measurements are **upper-bound approximations** - they correspond to the maximum theoretical level your headphones can produce, assuming your profile is correctly configured.
 
 The calculation relies on the Windows audio architecture. Certain hardware or software configurations distort or block the measurements:
 
@@ -140,7 +140,7 @@ The calculation relies on the Windows audio architecture. Certain hardware or so
 | Measurement interval | 25 ms audio block (configurable)                                             |
 | CSV logging          | 1 line per second (peak of the elapsed second)                               |
 | NIOSH standard       | 85 dB(A) criterion level, 8h criterion time, 3 dB exchange rate (NIOSH 1998) |
-| WHO standard         | 80 dB(A), 342 min/day, 40h/week — ITU-T H.870                                |
+| WHO standard         | 80 dB(A), 342 min/day, 40h/week - ITU-T H.870                                |
 | Interface            | Electron 28, Chart.js 4.4, chartjs-plugin-zoom                               |
 | Daemon               | Python 3.10+, NumPy, SciPy, soundcard, pycaw                                 |
 | Platform             | Windows 10 / 11 (x64)                                                        |
@@ -176,7 +176,7 @@ Press **F12** to open the DevTools console.
 ```bash
 git clone https://github.com/ByronlLove/HifiGuard.git
 
-# Windows — double-click build.bat
+# Windows - double-click build.bat
 # or from the command line:
 
 # 1. Create and activate a Python virtual environment
@@ -231,7 +231,7 @@ No. As explained in the *Limits and precision* section, Bluetooth headphones hav
 
 ## Credits
 
-**ByronlLove** — Software architecture and audio analysis engine design, 
+**ByronlLove** - Software architecture and audio analysis engine design, 
 dosimetric calculation modeling, user experience (UI/UX) design, 
 testing (QA), and deployment.
 
@@ -239,7 +239,7 @@ Source code and translations implemented with the assistance of Claude (Anthropi
 
 ## License
 
-AGPL-3.0 — see [LICENSE](LICENSE)
+AGPL-3.0 - see [LICENSE](LICENSE)
 
 
 ## Disclaimer
