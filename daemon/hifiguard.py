@@ -1,5 +1,5 @@
 """
-HifiGuard — Daemon Python
+HifiGuard - Daemon Python
 Sources : NIOSH 1998 (REL 85 dB, exchange rate 3 dB)
           OMS/ITU H.870 (80 dB / 40h semaine)
           Filtre A-weighting : IEC 61672-1
@@ -260,7 +260,7 @@ class AudioTracker:
         if time.time() - self._csv_buf_ts >= 1.0:
             self._flush_csv(profile_name)
 
-        # Dose — calculée à chaque frame (précision maximale)
+        # Dose  - calculée à chaque frame (précision maximale)
         if db_a < 70:
             return
 
@@ -332,7 +332,7 @@ class AudioTracker:
         })
 
 # ══════════════════════════════════════════════════════════
-# STATE.JSON — écriture sans plantage sur Windows
+# STATE.JSON  - écriture sans plantage sur Windows
 # ══════════════════════════════════════════════════════════
 def write_state(db_a, db_z, vol_db, stats, week_who, profile_name, refresh_cfg):
     state = {
@@ -371,7 +371,7 @@ def bar(db_a, width=20):
 # MAIN
 # ══════════════════════════════════════════════════════════
 # Codes d'erreur Windows Media Foundation qui indiquent une perte de device audio
-# → on tente un reconnect au lieu de mourir
+# on tente un reconnect au lieu de mourir
 _WMF_RECOVERABLE = {
     'Error 0x88890004',   # AUDCLNT_E_DEVICE_INVALIDATED
     'Error 0x8889000a',   # AUDCLNT_E_RESOURCES_INVALIDATED
