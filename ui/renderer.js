@@ -473,8 +473,8 @@ async function reloadTodayFromCSV() {
   const withGaps = insertGaps(rows)
   sessionData.labels = withGaps.map(r => r.ts ? r.ts.slice(11, 19) : null)
   sessionData.dba    = withGaps.map(r => r.db_a !== null ? r.db_a : null)
-  sessionData.niosh  = withGaps.map(r => r.db_a !== null ? null : null)  // rempli par suivi
-  sessionData.omsj   = withGaps.map(() => null)
+  sessionData.niosh = withGaps.map(r => r.niosh !== undefined ? r.niosh : null)
+  sessionData.omsj  = withGaps.map(r => r.whoDay !== undefined ? r.whoDay : null)
   sessionData.lastTs = rows.length ? rows[rows.length - 1].ts : null
 
   if (chartToday) {
@@ -899,7 +899,6 @@ function renderViewMonth() {
     }
     const metricVal   = getDayMetricValue(key)
     const metricStr   = metricVal !== null ? formatMetricValue(metricVal) : ''
-    const labelOms = L.dose_oms_day || 'OMS/j';
     grid.innerHTML += `<div class="cal-day ${cls}${isToday?' today':''}" data-key="${key}" title="${key} — ${L.dose_oms_day || 'OMS/j'}: ${dose.toFixed(1)}%">
       <div>${d}</div>
       ${data ? `<div class="day-dot" style="background:${dot}"></div>` : ''}
