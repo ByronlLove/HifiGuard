@@ -121,7 +121,6 @@ function restartDaemon() {
   restartAttempts++;
   console.log(`[System] Redémarrage du daemon (${restartAttempts}/${MAX_RESTARTS})...`);
 
-  // On tue de force l'ancien daemon zombie
   exec('taskkill /F /IM hifiguard-daemon.exe', (err, stdout, stderr) => {
     setTimeout(() => {
       startDaemon();
@@ -142,12 +141,12 @@ const readState  = () => readJSON(STATE_PATH)
 const readConfig = () => readJSON(CONFIG_PATH)
 
 // ══════════════════════════════════════════════════════════
-// LECTURE CSV — streaming readline + downsampling dans le main process
+// LECTURE CSV - streaming readline + downsampling dans le main process
 //
 // Principe :
-//   - On ne fait JAMAIS de readFileSync sur historique.csv (peut faire 50+ Mo)
+//   - On ne fait JAMAIS de readFileSync sur historique.csv (peut faire 50+ Mo je dis ça par expérience)
 //   - On lit ligne par ligne via un stream readline non-bloquant
-//   - Le downsampling se fait ici → le renderer reçoit max MAX_POINTS points
+//   - Le downsampling se fait ici -> le renderer reçoit max MAX_POINTS points
 //   - secondsPerBucket > 0 : résolution fixe (1 pt par N secondes)
 //   - secondsPerBucket = 0 : auto (découpe en MAX_POINTS buckets égaux)
 // ══════════════════════════════════════════════════════════
@@ -160,7 +159,7 @@ async function readCsvRangeStreamed(dateFrom, dateTo, secondsPerBucket) {
   const buckets  = new Map()
   const rawRows  = []
   const allDbA   = []   // uniquement points avec son, pour moyenne/médiane
-  let cumNiosh  = 0    // dose NIOSH cumulée (%) — calculée en streaming
+  let cumNiosh  = 0    // dose NIOSH cumulée (%) - calculée en streaming
   let cumWhoDay = 0    // dose OMS/jour cumulée (%)
 
   await new Promise((resolve, reject) => {
@@ -186,7 +185,7 @@ async function readCsvRangeStreamed(dateFrom, dateTo, secondsPerBucket) {
 
       if (db_a > 0) allDbA.push(db_a)
 
-      // Dose cumulée — recalculée fidèlement depuis le CSV (1 ligne = 1 seconde)
+      // Dose cumulée - recalculée fidèlement depuis le CSV (1 ligne = 1 seconde)
       // Même formule que hifiguard.py : dose += (1min/60) / T_permis * 100
       if (db_a >= 70) {
         const minFrac = 1 / 60
@@ -401,7 +400,7 @@ function showWindow() {
 }
 
 // ══════════════════════════════════════════════════════════
-// POLLING — un seul setInterval, gère live + tray séparément
+// POLLING - un seul setInterval, gère live + tray séparément
 // ══════════════════════════════════════════════════════════
 function adaptPolling(focused) {
   const cfg    = readConfig()
@@ -453,7 +452,7 @@ function doPoll() {
 // ══════════════════════════════════════════════════════════
 
 // ── Live (thread renderer dédié au live) ──────────────────
-// Renvoie le state déjà en mémoire — zéro I/O
+// Renvoie le state déjà en mémoire - zéro I/O
 ipcMain.handle('get-state', () => lastState || readState())
 
 // ── Config ────────────────────────────────────────────────
@@ -471,7 +470,7 @@ ipcMain.handle('save-config', (_, config) => {
 
 // ── CSV : stream async + downsampling ici ─────────────────
 // secondsPerBucket transmis par le renderer (0 = auto)
-// Le renderer reçoit MAX_POINTS points max — jamais les rows brutes
+// Le renderer reçoit MAX_POINTS points max - jamais les rows brutes
 ipcMain.handle('read-csv-range', async (_, dateFrom, dateTo, secondsPerBucket = 0) => {
   try {
     return await readCsvRangeStreamed(dateFrom, dateTo, secondsPerBucket)
@@ -515,7 +514,7 @@ ipcMain.handle('delete-day-data', async (_, dateKey) => {
       suiviCache = suivi
       suiviCacheTime = Date.now()
     }
-    // 2. Filtrer le CSV — réécrire sans les lignes du jour
+    // 2. Filtrer le CSV - réécrire sans les lignes du jour
     if (fs.existsSync(CSV_PATH)) {
       const prefix = dateKey + 'T'
       const lines  = fs.readFileSync(CSV_PATH, 'utf8').split('\n')
@@ -614,6 +613,5 @@ app.on('before-quit', () => {
   isQuitting = true // Sécurité supplémentaire
   if (pollInterval) clearInterval(pollInterval)
   stopDaemon()
-  // ── MODIFICATION ICI : Destruction du "fantôme" ──
   if (tray) tray.destroy() 
 })
