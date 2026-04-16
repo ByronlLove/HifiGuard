@@ -651,7 +651,7 @@ function buildLegend(containerId, chart, datasets) {
     pauseEl.className = 'legend-item'
     pauseEl.id = 'legend-pause-item'
     pauseEl.style.marginLeft = 'auto'
-    pauseEl.innerHTML = `<span class="legend-label" style="color:var(--muted)">' + (L.pause_hint || '⏵ Espace = Pause') + '</span>'
+    pauseEl.innerHTML = `<span class="legend-label" style="color:var(--muted)">${L.pause_hint || '⏵ Espace = Pause'}</span>`
     pauseEl.addEventListener('click', togglePause)
     c.appendChild(pauseEl)
   }
@@ -735,9 +735,9 @@ function renderDayStats(stats) {
   }
   if (!stats) { el.innerHTML = ''; return }
   el.innerHTML = `
-    <span>${L.mean_label||'Average'} : <strong style="color:#6366f1">${stats.mean} dB(A)</strong></span>
-    <span>${L.median_label||'Median'} : <strong style="color:#f97316">${stats.median} dB(A)</strong></span>
-    <span style="opacity:0.6">${stats.count} ${L.measures_with_sound||'measurements with sound'}</span>
+    <span>${L.mean_label || 'Moyenne'} : <strong style="color:#6366f1">${stats.mean} dB(A)</strong></span>
+    <span>${L.median_label || 'Médiane'} : <strong style="color:#f97316">${stats.median} dB(A)</strong></span>
+    <span style="opacity:0.6">${stats.count} ${L.measures_with_sound || 'mesures avec son'}</span>
   `
 }
 
@@ -893,7 +893,7 @@ function renderViewMonth() {
     }
     const metricVal   = getDayMetricValue(key)
     const metricStr   = metricVal !== null ? formatMetricValue(metricVal) : ''
-    grid.innerHTML += `<div class="cal-day ${cls}${isToday?' today':''}" data-key="${key}" title="${key} — OMS/j: ${dose.toFixed(1)}%">
+    grid.innerHTML += `<div class="cal-day ${cls}${isToday?' today':''}" data-key="${key}" title="${key} — ${L.dose_oms_day || 'OMS/j'}: ${dose.toFixed(1)}%">`
       <div>${d}</div>
       ${data ? `<div class="day-dot" style="background:${dot}"></div>` : ''}
       ${metricStr ? `<div class="day-metric">${metricStr}</div>` : ''}
@@ -916,15 +916,16 @@ async function renderViewDay(dateKey) {
   updateBreadcrumb()
 
   const data = suivi[dateKey] || {}
+  // À remplacer (vers ligne 685)
   document.getElementById('day-stats-grid').innerHTML = [
-    { v:(data.dose_niosh_pct    || 0).toFixed(1)+'%',    l:'NIOSH',        sub:'85 dB(A)/8h'       },
-    { v:(data.dose_who_day_pct  || 0).toFixed(1)+'%',    l:'OMS/jour',     sub:'80 dB(A)/342min'   },
-    { v:(data.dose_who_week_pct || 0).toFixed(1)+'%',    l:'OMS contrib.', sub:'Contribution hebdo' },
-    { v:(data.max_db_a          || 0).toFixed(1)+' dB',  l:'Pic',          sub:'dB(A) max'          },
-    { v:(data.minutes_above_80  || 0).toFixed(1)+' min', l:'>80 dB(A)',    sub:''                   },
-    { v:(data.minutes_above_85  || 0).toFixed(1)+' min', l:'>85 dB(A)',    sub:''                   },
+    { v:(data.dose_niosh_pct    || 0).toFixed(1)+'%',    l: L.dose_niosh || 'NIOSH',       sub:'85 dB(A)/8h'        },
+    { v:(data.dose_who_day_pct  || 0).toFixed(1)+'%',    l: L.dose_oms_day || 'OMS/jour',  sub:'80 dB(A)/342min'    },
+    { v:(data.dose_who_week_pct || 0).toFixed(1)+'%',    l: L.metric_oms || 'OMS contrib.', sub: L.oms_contrib_sub || 'Contribution hebdo' },
+    { v:(data.max_db_a          || 0).toFixed(1)+' dB',  l: L.today_peak || 'Pic',          sub:'dB(A) max'          },
+    { v:(data.minutes_above_80  || 0).toFixed(1)+' min', l:'>80 dB(A)',    sub:''                    },
+    { v:(data.minutes_above_85  || 0).toFixed(1)+' min', l:'>85 dB(A)',    sub:''                    },
   ].map(s => `<div class="stat-card"><div class="stat-val">${s.v}</div><div class="stat-label">${s.l}</div>${s.sub ? `<div class="stat-sub">${s.sub}</div>` : ''}</div>`).join('')
-
+  
   document.getElementById('day-chart-title').textContent = (L.cal_curves || 'Courbes du ') + ' ' + formatDateFR(dateKey)
 
   const loadingEl = document.getElementById('loading-day')
