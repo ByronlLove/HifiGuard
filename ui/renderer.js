@@ -297,11 +297,15 @@ function handleLiveState(state) {
 // TITLEBAR
 // ══════════════════════════════════════════════════════════
 function updateTitlebar(state) {
-  const db = state && state.db_a > 0 ? state.db_a.toFixed(1) + ' dB(A)' : '--'
-  const el = document.getElementById('titlebar-db')
-  el.textContent = db + ' '
-  el.style.color = state ? dbColor(state.db_a) : 'var(--muted)'
-  if (config) document.getElementById('titlebar-profile').textContent = '— ' + config.active_profile
+  const el = document.getElementById('titlebar-doses')
+  if (!el) return
+  if (state && state.db_a > 0) {
+    const nioshLabel = L.dose_niosh || 'NIOSH'
+    const omsjLabel  = L.dose_oms_day || 'OMS/j'
+    el.textContent = `${nioshLabel} ${state.dose_niosh.toFixed(1)}%  |  ${omsjLabel} ${state.dose_who_j.toFixed(1)}%`
+  } else {
+    el.textContent = ''
+  }
 }
 
 // ══════════════════════════════════════════════════════════
