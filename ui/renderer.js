@@ -900,11 +900,12 @@ function renderViewMonth() {
     const metricVal   = getDayMetricValue(key)
     const metricStr   = metricVal !== null ? formatMetricValue(metricVal) : ''
     const labelOms = L.dose_oms_day || 'OMS/j';
-    grid.innerHTML += `<div class="cal-day ${cls}${isToday?' today':''}" data-key="${key}" title="${key} — ${L.dose_oms_day || 'OMS/j'}: ${dose.toFixed(1)}%">`
+    grid.innerHTML += `<div class="cal-day ${cls}${isToday?' today':''}" data-key="${key}" title="${key} — ${L.dose_oms_day || 'OMS/j'}: ${dose.toFixed(1)}%">
       <div>${d}</div>
       ${data ? `<div class="day-dot" style="background:${dot}"></div>` : ''}
       ${metricStr ? `<div class="day-metric">${metricStr}</div>` : ''}
-    </div>`
+        </div>`
+
   }
   grid.querySelectorAll('.cal-day:not(.empty):not(.nodata)').forEach(el => {
     el.addEventListener('click', () => { calDay = el.dataset.key; animTransition(() => renderViewDay(calDay)) })
@@ -1196,6 +1197,12 @@ function formatDateFR(key) {
 // ══════════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════════
+window.__applyLocale = function(newL) {
+  L = newL
+  MONTHS = L.months || []
+  DAYS   = L.days   || []
+  applyTranslations()
+}
 
 async function init() {
   L      = await window.hifi.getLocale()
