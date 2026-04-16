@@ -93,7 +93,17 @@ function startDaemon() {
   })
 }
 
-function stopDaemon()    { if (daemonProcess) { daemonProcess.kill(); daemonProcess = null } }
+function stopDaemon() {
+  if (daemonProcess) {
+    daemonProcess.kill(); 
+    daemonProcess = null;
+  }
+  // FORCE LE NETTOYAGE : Élimine tout processus zombie qui verrouille les fichiers
+  try {
+    exec('taskkill /F /IM hifiguard-daemon.exe /T', { stdio: 'ignore' });
+    console.log('[System] Daemon nettoyé de force.');
+  } catch (e) {}
+}
 let restartAttempts = 0;
 const MAX_RESTARTS = 10;
 
@@ -263,15 +273,21 @@ function getTrayZone(db_a, thresholds) {
 }
 
 function buildTrayIcon(zone) {
-  // On pointe directement vers le dossier contenant tes icônes 64x64
-  // Les zones possibles : 'safe', 'ok', 'warn', 'danger', 'offline'
-  const iconPath = path.join(__dirname, '..', 'assets', 'tray', `${zone}.ico`);
+  // On définit le dossier selon si on est en dév ou buildé (process.resourcesPath)
+  const baseDir = app.isPackaged 
+    ? path.join(process.resourcesPath, 'assets', 'tray')
+    : path.join(__dirname, '..', 'assets', 'tray');
+
+  const iconPath = path.join(baseDir, `${zone}.ico`);
   
-  // Petite sécurité : si tu as oublié de mettre un fichier .ico, on évite le crash
   if (!fs.existsSync(iconPath)) {
     console.warn(`[Tray] Icône introuvable : ${iconPath}`);
-    return nativeImage.createEmpty();
+    // Sécurité : on tente de charger l'icône offline si la couleur manque
+    return nativeImage.createFromPath(path.join(baseDir, 'offline.ico'));
   }
+
+  return nativeImage.createFromPath(iconPath);
+}
 
   // On dit à Electron de charger ton icône Windows
   return nativeImage.createFromPath(iconPath);
