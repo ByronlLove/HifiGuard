@@ -50,14 +50,18 @@ let followMode = false   // scroll auto quand ancré à droite
 let hiresMode  = false   // affiche hiresBuffer (10min précis) au lieu de sessionData
 
 function applyTranslations() {
-  // Cherche tous les éléments HTML qui ont un attribut data-i18n
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
     if (L[key]) {
-      // Si c'est un champ de saisie, on traduit le placeholder, sinon on traduit le texte
       if (el.tagName === 'INPUT') el.placeholder = L[key];
       else el.innerHTML = L[key];
     }
+  });
+
+  // Traduit les bulles au survol (attribut title)
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.getAttribute('data-i18n-title');
+    if (L[key]) el.title = L[key];
   });
 }
 
