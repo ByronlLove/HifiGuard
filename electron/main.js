@@ -1,11 +1,11 @@
-const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, dialog } = require('electron')
+const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, dialog, powerMonitor } = require('electron')
 const path     = require('path')
 const fs       = require('fs')
 const readline = require('readline')
 const LOCALES_DIR = app.isPackaged
   ? path.join(process.resourcesPath, '..', 'locales')
   : path.join(__dirname, '..', 'locales')
-const { spawn, execSync } = require('child_process')
+const { spawn, execSync, exec } = require('child_process')
 
 // ── Chemins ────────────────────────────────────────────────
 app.setPath('userData', path.join(app.getPath('appData'), 'HifiGuard'))
@@ -22,7 +22,7 @@ const CSV_PATH     = path.join(DATA_DIR, 'historique.csv')
 // En développement, on lance le .py directement avec python
 const IS_PROD      = app.isPackaged
 const DAEMON_PATH  = IS_PROD
-  ? path.join(process.resourcesPath, 'daemon', 'hifiguard.exe')
+  ? path.join(process.resourcesPath, 'daemon', 'hifiguard-daemon.exe')
   : path.join(__dirname, '..', 'daemon', 'hifiguard.py')
 const PYTHON_CMD   = IS_PROD ? null : 'python'
 
@@ -94,8 +94,29 @@ function startDaemon() {
 }
 
 function stopDaemon()    { if (daemonProcess) { daemonProcess.kill(); daemonProcess = null } }
-function restartDaemon() { stopDaemon(); setTimeout(startDaemon, 800) }
+let restartAttempts = 0;
+const MAX_RESTARTS = 10;
 
+function restartDaemon() {
+  if (restartAttempts >= MAX_RESTARTS) {
+    console.log('[System] Nombre maximum de redémarrages atteint (10). Arrêt.');
+    return;
+  }
+
+  restartAttempts++;
+  console.log(`[System] Redémarrage du daemon (${restartAttempts}/${MAX_RESTARTS})...`);
+
+  // On tue de force l'ancien daemon zombie
+  exec('taskkill /F /IM hifiguard-daemon.exe', (err, stdout, stderr) => {
+    setTimeout(() => {
+      startDaemon();
+    }, 1000);
+  });
+}
+
+function resetRestartAttempts() {
+  restartAttempts = 0;
+}
 // ══════════════════════════════════════════════════════════
 // LECTURE FICHIERS
 // ══════════════════════════════════════════════════════════
@@ -556,6 +577,10 @@ function setAutoLaunch(enable) {
 // APP LIFECYCLE
 // ══════════════════════════════════════════════════════════
 app.whenReady().then(() => {
+  powerMonitor.on('resume', () => {
+    console.log('[System] PC sorti de veille, nettoyage et redémarrage...');
+    restartDaemon();
+  });
   const icon = buildTrayIcon('offline')
   tray = new Tray(icon)
   tray.setContextMenu(buildTrayMenu())
