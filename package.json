@@ -3,6 +3,19 @@
   "version": "1.0.0",
   "description": "Personal hearing dosimeter for headphones and earphones.",
   "author": "ByronlLove",
+  "license": "AGPL-3.0",
+  "homepage": "https://github.com/ByronlLove/HifiGuard",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ByronlLove/HifiGuard.git"
+  },
+  "keywords": [
+    "dosimeter",
+    "hearing",
+    "audio",
+    "spl",
+    "electron"
+  ],
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
@@ -61,6 +74,7 @@
       "icon": "assets/icon256.ico"
     },
     "nsis": {
+      "artifactName": "HifiGuard-Setup-${version}.exe",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "installerIcon": "assets/icon256.ico",
