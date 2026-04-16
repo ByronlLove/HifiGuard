@@ -447,7 +447,10 @@ body.dragging #main{pointer-events:none;}
         <div class="card">
           <div class="card-title" data-i18n="settings_add_profile">Ajouter / modifier un profil</div>
           <div class="form-grid">
-            <div class="form-row form-full"><label data-i18n="profile_name">Nom du profil</label><input id="f-name" placeholder="ex: Sony WH-1000XM5"/></div>
+            <div class="form-row form-full">
+              <label data-i18n="profile_name">Nom du profil</label>
+              <input id="f-name" data-i18n="profile_name" placeholder="ex: Sony WH-1000XM5"/>
+            </div>
             <div class="form-row">
               <label data-i18n="profile_sens">Sensibilité</label>
               <div style="display:flex;gap:6px;">
@@ -459,9 +462,18 @@ body.dragging #main{pointer-events:none;}
                 </select>
               </div>
             </div>
-            <div class="form-row"><label data-i18n="profile_imp">Impédance (Ω)</label><input id="f-imp" type="number" step="0.5" placeholder="32.0"/></div>
-            <div class="form-row"><label data-i18n="profile_vout">Tension DAC Vout (Vrms)</label><input id="f-vout" type="number" step="0.01" placeholder="1.2"/></div>
-            <div class="form-row form-full"><label data-i18n="profile_desc">Description</label><input id="f-desc" placeholder="ex: DAC CX31993..."/></div>
+            <div class="form-row">
+              <label data-i18n="profile_imp">Impédance (Ω)</label>
+              <input id="f-imp" type="number" step="0.5" placeholder="32.0"/>
+            </div>
+            <div class="form-row">
+              <label data-i18n="profile_vout">Tension DAC Vout (Vrms)</label>
+              <input id="f-vout" type="number" step="0.01" placeholder="1.2"/>
+            </div>
+            <div class="form-row form-full">
+              <label data-i18n="profile_desc">Description</label>
+              <input id="f-desc" data-i18n="profile_desc" placeholder="ex: DAC CX31993..."/>
+            </div>
           </div>
           <div id="f-maxspl" style="font-size:12px;color:var(--muted);margin:10px 0 12px;min-height:16px;"></div>
           <div class="btn-row">
