@@ -16,7 +16,7 @@
   "today_t80": "Temps > 80 dB(A)",
   "today_exposure": "Niveaux d'exposition",
   "today_session": "Aujourd'hui",
-  "today_hint": "Molette = zoom · Clic+glisser = déplacer · Double-clic = dernière min (haute précision)",
+  "today_hint": "Molette = zoom · Clic+glisser = déplacer · Double-clic = 10 dernières min (haute précision)",
   "res_label": "Résolution :",
   "res_auto": "Auto",
   "dose_niosh": "NIOSH",
