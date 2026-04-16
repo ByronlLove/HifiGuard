@@ -52,8 +52,8 @@ HifiGuard est nativement compatible avec des equalizers système telles qu'[Equa
 
 | Version      | Fichier                                                                                                                         | Taille | Prérequis                  |
 |--------------|---------------------------------------------------------------------------------------------------------------------------------|--------|----------------------------|
-| Installateur | [`HifiGuard-Setup-1.0.0.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.0.0/HifiGuard-Setup-1.0.0.exe)       | 125 Mo | Aucun - Python est intégré |
-| Portable     | [`HifiGuard-1.0.0-portable.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.0.0/HifiGuard-1.0.0-portable.exe) | 123 Mo | Aucun - Python est intégré |
+| Installateur | [`HifiGuard-Setup-1.1.0.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.1.0/HifiGuard-Setup-1.1.0.exe)       | 125 Mo | Aucun - Python est intégré |
+| Portable     | [`HifiGuard-1.1.0-portable.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.1.0/HifiGuard-1.1.0-portable.exe) | 123 Mo | Aucun - Python est intégré |
 
 ### Premier lancement
 
