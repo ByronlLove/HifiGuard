@@ -1,7 +1,7 @@
 {
   "name": "hifiguard",
   "version": "1.0.0",
-  "description": "Dosim\u00e8tre auditif personnel pour casques et \u00e9couteurs",
+  "description": "Personal hearing dosimeter for headphones and earphones.",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
