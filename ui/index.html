@@ -28,8 +28,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 }
 /* Drag uniquement sur le logo et le centre */
 #titlebar-logo{padding:0 40px 0 0;margin-left:46px;font-size:14px;font-weight:700;color:var(--accent);-webkit-app-region:drag;white-space:nowrap;}
-#titlebar-center{flex:1;text-align:center;font-size:12px;color:var(--muted);-webkit-app-region:drag;}
-#titlebar-db{font-size:13px;font-weight:600;margin-right:4px;}
+#titlebar-center{flex:1;text-align:center;-webkit-app-region:drag;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;}
 .win-btn{
   width:46px;height:var(--titlebar);display:flex;align-items:center;justify-content:center;
   -webkit-app-region:no-drag;cursor:pointer;font-size:13px;color:var(--muted);
