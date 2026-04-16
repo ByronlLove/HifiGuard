@@ -31,7 +31,7 @@ pip install pyinstaller soundcard numpy scipy pycaw comtypes --quiet
 if errorlevel 1 ( echo [ERROR] pip install failed. & pause & exit /b 1 )
 
 echo [2/5] Compiling Python daemon to .exe (PyInstaller)...
-python -m PyInstaller --onefile --noconsole --name hifiguard --distpath daemon/dist daemon/hifiguard.py --clean
+python -m PyInstaller --onefile --noconsole --name hifiguard-daemon --distpath daemon/dist daemon/hifiguard.py --clean
 if errorlevel 1 ( echo [ERROR] PyInstaller failed. & pause & exit /b 1 )
 
 echo [3/5] Auditing and fixing Node vulnerabilities...
@@ -49,7 +49,7 @@ if errorlevel 1 ( echo [ERROR] electron-builder failed. & pause & exit /b 1 )
 echo.
 echo ================================================
 echo   Build complete! Files in: dist/
-echo   - HifiGuard Setup 1.0.0.exe  (installer)
+echo   - HifiGuard-Setup-1.0.0.exe  (installer)
 echo   - HifiGuard-1.0.0-portable.exe  (portable)
 echo ================================================
 pause
