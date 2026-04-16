@@ -1059,8 +1059,15 @@ function updateMaxSplPreview() {
   const imp  = parseFloat(document.getElementById('f-imp').value)
   const vout = parseFloat(document.getElementById('f-vout').value)
   const el   = document.getElementById('f-maxspl')
-  if (sens && imp && vout) el.textContent = `→ MAX SPL calculé : ${computeMaxSpl(sens, unit, imp, vout).toFixed(1)} dB`
-  else el.textContent = ''
+  
+  // On récupère le texte traduit, ou on met 'MAX SPL calculé' par défaut
+  const prefix = L.max_spl_calc || 'MAX SPL calculé'
+
+  if (sens && imp && vout) {
+    el.textContent = `→ ${prefix} : ${computeMaxSpl(sens, unit, imp, vout).toFixed(1)} dB`
+  } else {
+    el.textContent = ''
+  }
 }
 
 async function saveProfile() {
