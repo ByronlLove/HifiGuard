@@ -22,11 +22,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
   height:var(--titlebar);min-height:var(--titlebar);
   background:var(--bg2);border-bottom:1px solid var(--border);
   display:flex;align-items:center;
-  /* PAS de drag global ici — ça empêche les clics sur le hamburger même avec z-index */
   -webkit-app-region:no-drag;
   flex-shrink:0;position:relative;z-index:100;
 }
-/* Drag uniquement sur le logo et le centre */
 #titlebar-logo{padding:0 40px 0 0;margin-left:46px;font-size:14px;font-weight:700;color:var(--accent);-webkit-app-region:drag;white-space:nowrap;}
 #titlebar-center{flex:1;text-align:center;-webkit-app-region:drag;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;}
 .win-btn{
@@ -37,7 +35,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .win-btn:hover{background:var(--bg3);color:var(--text);}
 #btn-close:hover{background:#e81123;color:white;}
 
-/* Hamburger — absolument positionné sur le titlebar, entièrement no-drag */
 #hamburger{
   position:absolute;top:0;left:0;
   height:var(--titlebar);width:46px;
@@ -46,7 +43,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
   transition:background 0.15s;z-index:300;
 }
 #hamburger:hover{background:rgba(255,255,255,0.06);}
-/* Les spans ne doivent jamais intercepter les clics — tout passe au div parent */
 #hamburger span{display:block;width:14px;height:2px;background:var(--text);border-radius:2px;pointer-events:none;}
 
 /* ── LAYOUT ── */
@@ -100,7 +96,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 
 /* CHART */
 .chart-wrap{position:relative;height:240px;}
-/* Canvas forcé à remplir le wrapper en absolu — garantit la hauteur même si
+/* Canvas forcé à remplir le wrapper en absolu - garantit la hauteur même si
    le parent vient de passer de display:none à block */
 .chart-wrap canvas{position:absolute;top:0;left:0;width:100%!important;height:100%!important;}
 .chart-hint{font-size:11px;color:var(--muted);margin-top:6px;text-align:right;}
@@ -578,7 +574,6 @@ body.dragging #main{pointer-events:none;}
 
 <script>
 // Désactiver les transitions pendant le drag de la fenêtre
-// pour éviter le lag causé par les repaints CSS
 ;(function(){
   const dragZones = ['titlebar-logo','titlebar-center']
   dragZones.forEach(id => {
