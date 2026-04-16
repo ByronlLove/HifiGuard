@@ -459,7 +459,6 @@ ipcMain.handle('get-suivi', () => readSuiviCached())
 
 ipcMain.handle('save-config', (_, config) => {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2))
-  restartDaemon()
   adaptPolling(windowVisible)
   return true
 })
