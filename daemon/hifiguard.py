@@ -14,12 +14,16 @@ if getattr(sys, 'frozen', False):
         app_root = Path(os.environ.get('APPDATA', '')) / "HifiGuard"
         app_root.mkdir(parents=True, exist_ok=True)
         log_file = app_root / "daemon_errors.log"
-        # Mode 'a' pour ajouter à la suite, buffering=1 pour écrire en temps réel
-        f = open(log_file, 'a', encoding='utf-8', buffering=1)
-        sys.stdout = f
-        sys.stderr = f
+        
+        f_err = open(log_file, 'a', encoding='utf-8', buffering=1)
+        
+        # On ne redirige QUE les erreurs critiques (crashes, bugs) vers le fichier texte
+        sys.stderr = f_err
+        
+        # On envoie l'affichage normal (les dB) dans le vide spatial pour ne pas saturer le disque
+        sys.stdout = open(os.devnull, 'w') 
     except Exception:
-        pass 
+        pass
 
 sys.coinit_flags = 2
 
