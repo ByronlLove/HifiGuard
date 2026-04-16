@@ -2,6 +2,7 @@
   "name": "hifiguard",
   "version": "1.0.0",
   "description": "Personal hearing dosimeter for headphones and earphones.",
+  "author": "ByronlLove",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
