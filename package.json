@@ -20,7 +20,7 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
-    "build:daemon": "pyinstaller --onefile --noconsole --name hifiguard --distpath daemon/dist daemon/hifiguard.py"
+    "build:daemon": "pyinstaller --onefile --noconsole --name hifiguard-daemon --distpath daemon/dist daemon/hifiguard.py"
   },
   "dependencies": {
     "chart.js": "^4.4.0"
@@ -44,8 +44,8 @@
     ],
     "extraResources": [
       {
-        "from": "daemon/dist/hifiguard.exe",
-        "to": "daemon/hifiguard.exe"
+        "from": "daemon/dist/hifiguard-daemon.exe",
+        "to": "daemon/hifiguard-daemon.exe"
       },
       {
         "from": "assets/",
@@ -80,9 +80,15 @@
       "installerIcon": "assets/icon256.ico",
       "uninstallerIcon": "assets/icon256.ico",
       "installerHeaderIcon": "assets/icon256.ico",
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": false,
       "createStartMenuShortcut": true,
-      "shortcutName": "HifiGuard"
+      "menuCategory": "HifiGuard",
+      "shortcutName": "HifiGuard",
+      "displayLanguageSelector": true,
+      "installerLanguages": [
+        "en_US",
+        "fr_FR"
+      ]
     },
     "portable": {
       "artifactName": "HifiGuard-${version}-portable.exe"
