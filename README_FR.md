@@ -188,6 +188,7 @@ git clone https://github.com/ByronlLove/HifiGuard.git
 # ou en ligne de commande :
 
 # 1. Créer et activer un environnement virtuel Python
+# 1. Create and activate a Python virtual environment
 python -m venv venv
 .\venv\Scripts\activate
 
@@ -195,7 +196,7 @@ python -m venv venv
 pip install pyinstaller soundcard numpy scipy pycaw comtypes
 
 # 3. Compiler le daemon Python en .exe
-python -m PyInstaller --onefile --noconsole --name hifiguard --distpath daemon/dist daemon/hifiguard.py --clean
+python -m PyInstaller --onefile --noconsole --name hifiguard-daemon --distpath daemon/dist daemon/hifiguard.py --clean
 
 # 4. Installer les dépendances Node et packager l'application Electron
 npm install
