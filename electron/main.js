@@ -415,6 +415,7 @@ function doPoll() {
   const state = readState()
   if (!state) return
   lastState = state
+  resetRestartAttempts();
 
   const now = Date.now()
 
