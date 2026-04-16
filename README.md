@@ -187,7 +187,7 @@ python -m venv venv
 pip install pyinstaller soundcard numpy scipy pycaw comtypes
 
 # 3. Compile the Python daemon into an .exe
-python -m PyInstaller --onefile --noconsole --name hifiguard --distpath daemon/dist daemon/hifiguard.py --clean
+python -m PyInstaller --onefile --noconsole --name hifiguard-daemon --distpath daemon/dist daemon/hifiguard.py --clean
 
 # 4. Install Node dependencies and package the Electron app
 npm install
