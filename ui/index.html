@@ -315,7 +315,7 @@ body.dragging #main{pointer-events:none;}
 <div id="app-loader">
   <div class="spinner"></div>
   <div class="loader-title">〣 HifiGuard</div>
-  <div class="loader-sub">Connexion au daemon…</div>
+  <div class="loader-sub" data-i18n="connecting">Connexion au daemon…</div>
 </div>
 
 <div id="app">
@@ -327,9 +327,9 @@ body.dragging #main{pointer-events:none;}
     <div id="titlebar-center">
       <span id="titlebar-db"></span><span id="titlebar-profile" style="color:var(--muted);"></span>
     </div>
-    <div class="win-btn" id="btn-minimize" title="Réduire">─</div>
-    <div class="win-btn" id="btn-maximize" title="Agrandir">❐</div>
-    <div class="win-btn" id="btn-close" title="Fermer">✕</div>
+    <div class="win-btn" id="btn-minimize" data-i18n-title="win_min" title="Réduire">─</div>
+    <div class="win-btn" id="btn-maximize" data-i18n-title="win_max" title="Agrandir">❐</div>
+    <div class="win-btn" id="btn-close" data-i18n-title="win_close" title="Fermer">✕</div>
   </div>
 
   <div id="body">
@@ -428,7 +428,7 @@ body.dragging #main{pointer-events:none;}
                 <button class="res-btn"        data-spb="60" onclick="setDayResolution(60)">1 min</button>
                 <button class="res-btn"        data-spb="300" onclick="setDayResolution(300)">5 min</button>
               </div>
-              <div class="chart-hint" data-i18n="today_hint">🖱 Molette = zoom · Clic+glisser = déplacer · Double-clic = réinitialiser</div>
+              <div class="chart-hint" data-i18n="cal_hint">🖱 Molette = zoom · Clic+glisser = déplacer · Double-clic = réinitialiser</div>
               <div class="chart-legend" id="legend-day"></div>
             </div>
           </div>
