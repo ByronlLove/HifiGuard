@@ -436,7 +436,7 @@ function initChartToday() {
       scales:{
         x:  { ticks:{ maxTicksLimit:8, maxRotation:0 } },
         y:  { position:'left',  title:{ display:true, text:'dB(A)' }, min:0, max:120 },
-        y2: { position:'right', title:{ display:true, text:'Dose %' }, min:0, max:100, grid:{ drawOnChartArea:false } }
+        y2: { position:'right', title:{ display:true, text: L.label_dose_axis || 'Dose %' }, min:0, max:100, grid:{ drawOnChartArea:false } }
       }
     }
   })
@@ -689,7 +689,7 @@ function createChartDay() {
       scales:{
         x:  { ticks:{ maxTicksLimit:10, maxRotation:0 } },
         y:  { position:'left',  title:{ display:true, text:'dB' }, min:0, max:120 },
-        y2: { position:'right', title:{ display:true, text:'Dose %' }, min:0, max:100, grid:{ drawOnChartArea:false } }
+        y2: { position:'right', title:{ display:true, text: L.label_dose_axis || 'Dose %' }, min:0, max:100, grid:{ drawOnChartArea:false } }
       }
     }
   })
@@ -815,9 +815,11 @@ function renderViewYear() {
   showCalView('view-year'); updateBreadcrumb()
   document.getElementById('view-year').innerHTML = MONTHS.map((name, mi) => {
     const { avgDose, days, color } = getMonthStats(calYear, mi)
+    let statsTemplate = L.cal_stats_suffix || "{days}j · {avg}% OMS moy.";
+    let statsText = statsTemplate.replace('{days}', days).replace('{avg}', avgDose.toFixed(0));
     return `<div class="month-cell" data-month="${mi}">
       <div class="month-name">${name}</div>
-      <div class="month-stats">${days}j · ${avgDose.toFixed(0)}% OMS moy.</div>
+      <div class="month-stats">${statsText}</div>
       <div class="month-bar"><div class="month-bar-fill" style="width:${Math.min(avgDose,100)}%;background:${color}"></div></div>
     </div>`
   }).join('')
@@ -893,7 +895,8 @@ function renderViewMonth() {
     }
     const metricVal   = getDayMetricValue(key)
     const metricStr   = metricVal !== null ? formatMetricValue(metricVal) : ''
-    grid.innerHTML += `<div class="cal-day ${cls}${isToday?' today':''}" data-key="${key}" title="${key} — ${L.dose_oms_day || 'OMS/j'}: ${dose.toFixed(1)}%">`
+    const labelOms = L.dose_oms_day || 'OMS/j';
+    grid.innerHTML += `<div class="cal-day ${cls}${isToday?' today':''}" data-key="${key}" title="${key} — ${labelOms}: ${dose.toFixed(1)}%">`
       <div>${d}</div>
       ${data ? `<div class="day-dot" style="background:${dot}"></div>` : ''}
       ${metricStr ? `<div class="day-metric">${metricStr}</div>` : ''}
@@ -916,14 +919,13 @@ async function renderViewDay(dateKey) {
   updateBreadcrumb()
 
   const data = suivi[dateKey] || {}
-  // À remplacer (vers ligne 685)
   document.getElementById('day-stats-grid').innerHTML = [
-    { v:(data.dose_niosh_pct    || 0).toFixed(1)+'%',    l: L.dose_niosh || 'NIOSH',       sub:'85 dB(A)/8h'        },
-    { v:(data.dose_who_day_pct  || 0).toFixed(1)+'%',    l: L.dose_oms_day || 'OMS/jour',  sub:'80 dB(A)/342min'    },
-    { v:(data.dose_who_week_pct || 0).toFixed(1)+'%',    l: L.metric_oms || 'OMS contrib.', sub: L.oms_contrib_sub || 'Contribution hebdo' },
-    { v:(data.max_db_a          || 0).toFixed(1)+' dB',  l: L.today_peak || 'Pic',          sub:'dB(A) max'          },
-    { v:(data.minutes_above_80  || 0).toFixed(1)+' min', l:'>80 dB(A)',    sub:''                    },
-    { v:(data.minutes_above_85  || 0).toFixed(1)+' min', l:'>85 dB(A)',    sub:''                    },
+    { v:(data.dose_niosh_pct    || 0).toFixed(1)+'%',    l: L.dose_niosh || 'NIOSH',       sub: L.desc_niosh || '85 dB(A)/8h'        },
+    { v:(data.dose_who_day_pct  || 0).toFixed(1)+'%',    l: L.dose_oms_day || 'OMS/jour',  sub: L.desc_oms_day || '80 dB(A)/342min'  },
+    { v:(data.dose_who_week_pct || 0).toFixed(1)+'%',    l: L.label_oms_contrib || 'OMS contrib.', sub: L.desc_oms_week || 'Contribution hebdo' },
+    { v:(data.max_db_a          || 0).toFixed(1)+' dB',  l: L.today_peak || 'Pic',          sub: L.desc_peak || 'dB(A) max'          },
+    { v:(data.minutes_above_80  || 0).toFixed(1)+' min', l:'>80 dB(A)',    sub:'' },
+    { v:(data.minutes_above_85  || 0).toFixed(1)+' min', l:'>85 dB(A)',    sub:'' },
   ].map(s => `<div class="stat-card"><div class="stat-val">${s.v}</div><div class="stat-label">${s.l}</div>${s.sub ? `<div class="stat-sub">${s.sub}</div>` : ''}</div>`).join('')
   
   document.getElementById('day-chart-title').textContent = (L.cal_curves || 'Courbes du ') + ' ' + formatDateFR(dateKey)
