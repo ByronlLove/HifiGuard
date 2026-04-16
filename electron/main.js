@@ -283,7 +283,7 @@ function buildTrayIcon(zone) {
     return nativeImage.createFromPath(path.join(baseDir, 'offline.ico'));
   }
 
-  return nativeImage.createFromPath(iconPath);
+  return nativeImage.createFromPath(iconPath)
 }
 
 let trayLastPoll = 0
