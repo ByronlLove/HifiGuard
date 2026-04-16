@@ -425,7 +425,7 @@ function initChartToday() {
   const datasets = [
     { label:'dB(A)',   data:[], borderColor:COLORS.dba,   borderWidth:2,   pointRadius:0, tension:0.3, yAxisID:'y',  spanGaps:false },
     { label:'NIOSH %', data:[], borderColor:COLORS.niosh, borderWidth:1.5, pointRadius:0, tension:0.3, yAxisID:'y2', borderDash:[4,4], spanGaps:false },
-    { label:'OMS/j %', data:[], borderColor:COLORS.omsj,  borderWidth:1.5, pointRadius:0, tension:0.3, yAxisID:'y2', borderDash:[4,4], spanGaps:false },
+    { label: L.metric_oms || 'OMS/j %', data:[], borderColor:COLORS.omsj,  borderWidth:1.5, pointRadius:0, tension:0.3, yAxisID:'y2', borderDash:[4,4], spanGaps:false },
   ]
   chartToday = new Chart(ctx, {
     type:'line', data:{ labels:[], datasets },
@@ -602,13 +602,13 @@ function zoomToLast10Min(chart) {
 function renderDoseBars(doses) {
   document.getElementById('dose-bars').innerHTML = [
     { name:'NIOSH',    val: doses ? doses.niosh  : 0, color:COLORS.niosh, sub:'85 dB(A)/8h'     },
-    { name:'OMS/jour', val: doses ? doses.omsj   : 0, color:COLORS.omsj,  sub:'80 dB(A)/342min' },
-    { name:'OMS/7j',   val: doses ? doses.oms7j  : 0, color:'#a855f7',    sub:'80 dB(A)/40h'   },
+    { name: L.dose_oms_day || 'OMS/jour', val: doses ? doses.omsj   : 0, color:COLORS.omsj,  sub:'80 dB(A)/342min' },
+    { name: L.dose_oms_week || 'OMS/7j',   val: doses ? doses.oms7j  : 0, color:'#a855f7',    sub:'80 dB(A)/40h'   },
   ].map(it => {
     const pct = Math.min(it.val || 0, 100)
     const col = it.val > 80 ? 'var(--danger)' : it.val > 50 ? 'var(--warn)' : it.color
     return `<div class="dose-row">
-      <div class="dose-name" title="Seuil : ${it.sub}">${it.name}</div>
+      <div class="dose-name" title="${L.threshold_label || 'Seuil'} : ${it.sub}">${it.name}</div>
       <div class="dose-track"><div class="dose-fill" style="width:${pct}%;background:${col}"></div></div>
       <div class="dose-pct" style="color:${col}">${(it.val || 0).toFixed(1)}%</div>
     </div>`
@@ -623,7 +623,7 @@ function togglePause() {
   const pauseItem = document.getElementById('legend-pause-item')
   if (pauseItem) {
     pauseItem.classList.toggle('paused', isPaused)
-    pauseItem.querySelector('.legend-label').textContent = isPaused ? '⏸ En pause' : '⏵ Espace = Pause'
+    pauseItem.querySelector('.legend-label').textContent = isPaused ? (L.paused || '⏸ En pause') : (L.pause_hint || '⏵ Espace = Pause')
     pauseItem.style.color = isPaused ? 'var(--warn)' : ''
   }
 }
@@ -651,7 +651,7 @@ function buildLegend(containerId, chart, datasets) {
     pauseEl.className = 'legend-item'
     pauseEl.id = 'legend-pause-item'
     pauseEl.style.marginLeft = 'auto'
-    pauseEl.innerHTML = `<span class="legend-label" style="color:var(--muted)">⏵ Espace = Pause</span>`
+    pauseEl.innerHTML = `<span class="legend-label" style="color:var(--muted)">' + (L.pause_hint || '⏵ Espace = Pause') + '</span>'
     pauseEl.addEventListener('click', togglePause)
     c.appendChild(pauseEl)
   }
@@ -675,10 +675,10 @@ function createChartDay() {
   const datasets = [
     { label:'dB(A)',    data:[], borderColor:COLORS.dba,             borderWidth:1.5, pointRadius:0, tension:0.2, spanGaps:false, yAxisID:'y'  },
     { label:'dB(Z)',    data:[], borderColor:COLORS.dbz,             borderWidth:1,   pointRadius:0, tension:0.2, borderDash:[3,3], spanGaps:false, yAxisID:'y'  },
-    { label:'Moyenne',  data:[], borderColor:'rgba(99,102,241,0.55)',borderWidth:1.5, pointRadius:0, tension:0,   borderDash:[6,3], spanGaps:true,  yAxisID:'y'  },
-    { label:'Médiane',  data:[], borderColor:'rgba(249,115,22,0.55)',borderWidth:1.5, pointRadius:0, tension:0,   borderDash:[2,4], spanGaps:true,  yAxisID:'y'  },
+    { label: L.mean_label || 'Moyenne',  data:[], borderColor:'rgba(99,102,241,0.55)',borderWidth:1.5, pointRadius:0, tension:0,   borderDash:[6,3], spanGaps:true,  yAxisID:'y'  },
+    { label: L.median_label || 'Médiane',  data:[], borderColor:'rgba(249,115,22,0.55)',borderWidth:1.5, pointRadius:0, tension:0,   borderDash:[2,4], spanGaps:true,  yAxisID:'y'  },
     { label:'NIOSH %',  data:[], borderColor:COLORS.niosh,           borderWidth:1.5, pointRadius:0, tension:0.3, borderDash:[4,4], spanGaps:true,  yAxisID:'y2' },
-    { label:'OMS/j %',  data:[], borderColor:COLORS.omsj,            borderWidth:1.5, pointRadius:0, tension:0.3, borderDash:[4,4], spanGaps:true,  yAxisID:'y2' },
+    { label: L.metric_oms || 'OMS/j %',  data:[], borderColor:COLORS.omsj,            borderWidth:1.5, pointRadius:0, tension:0.3, borderDash:[4,4], spanGaps:true,  yAxisID:'y2' },
   ]
   chartDay = new Chart(ctx, {
     type:'line', data:{ labels:[], datasets },
@@ -925,7 +925,7 @@ async function renderViewDay(dateKey) {
     { v:(data.minutes_above_85  || 0).toFixed(1)+' min', l:'>85 dB(A)',    sub:''                   },
   ].map(s => `<div class="stat-card"><div class="stat-val">${s.v}</div><div class="stat-label">${s.l}</div>${s.sub ? `<div class="stat-sub">${s.sub}</div>` : ''}</div>`).join('')
 
-  document.getElementById('day-chart-title').textContent = 'Courbes du ' + formatDateFR(dateKey)
+  document.getElementById('day-chart-title').textContent = (L.cal_curves || 'Courbes du ') + ' ' + formatDateFR(dateKey)
 
   const loadingEl = document.getElementById('loading-day')
   if (loadingEl) loadingEl.classList.remove('hidden')
