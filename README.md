@@ -165,7 +165,7 @@ git clone https://github.com/ByronlLove/HifiGuard.git
 npm install
 
 # Install Python dependencies
-pip install soundcard numpy scipy pycaw comtypes
+pip install pyinstaller soundcard sounddevice numpy scipy pycaw comtypes
 
 # Start
 npm start
