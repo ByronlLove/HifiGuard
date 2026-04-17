@@ -103,7 +103,6 @@ function startDaemon() {
 }
 
 function stopDaemon() {
-  isRestarting = false
   if (daemonProcess) {
     daemonProcess.kill(); 
     daemonProcess = null;
@@ -131,6 +130,7 @@ function restartDaemon() {
 
   setTimeout(() => {
     startDaemon();
+    isRestarting = false;  
   }, 1500);
 }
 
