@@ -37,6 +37,7 @@ if hasattr(sys.stderr, 'reconfigure'):
     except Exception: pass
 
 import comtypes
+import sounddevice as sd
 import soundcard as sc
 import numpy as np
 import json
@@ -165,7 +166,6 @@ def get_active_profile(config):
 # ══════════════════════════════════════════════════════════
 # NORMES
 # ══════════════════════════════════════════════════════════
-FS                    = 44100
 NIOSH_CRITERION_LEVEL = 85.0
 NIOSH_CRITERION_TIME  = 480.0
 WHO_WEEKLY_LIMIT_MIN  = 2400.0
@@ -384,12 +384,24 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
     """
     Boucle de capture audio optimisée avec "Hot Reload" des paramètres matériels.
     """
-    python_ms         = refresh_cfg['python_ms']
-    BLOCK_SIZE        = max(int(FS * python_ms / 1000), 256)
-    seconds_per_block = BLOCK_SIZE / FS
+    python_ms = refresh_cfg['python_ms']
+
+    # --- DÉTECTION DYNAMIQUE DES HZ DU DAC ---
+    try:
+        wasapi_id = next(i for i, api in enumerate(sd.query_hostapis()) if 'WASAPI' in api['name'])
+        wasapi_info = sd.query_hostapis(wasapi_id)
+        device_info = sd.query_devices(wasapi_info['default_output_device'])
+        DAC_FS = int(device_info['default_samplerate'])
+    except Exception as e:
+        print(f"Erreur détection Hz, fallback à 44100: {e}")
+        DAC_FS = 44100
+    # ------------------------------------------
+
+    BLOCK_SIZE        = max(int(DAC_FS * python_ms / 1000), 256)
+    seconds_per_block = BLOCK_SIZE / DAC_FS
     save_every        = max(1, int(30000 / python_ms))
 
-    b, a = build_a_weighting_filter(FS)
+    b, a = build_a_weighting_filter(DAC_FS)
     zi   = signal.lfilter_zi(b, a)
 
     devices = AudioUtilities.GetSpeakers()
@@ -397,13 +409,12 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
 
     speaker = sc.default_speaker()
     mic     = sc.get_microphone(id=speaker.name, include_loopback=True)
-    print(f'Monitoring : {mic.name}')
+    print(f'Monitoring : {mic.name} (@ {DAC_FS} Hz)')
 
-    # On récupère le dictionnaire du profil actuel pour détecter les changements internes
     current_profiles = config.get('profiles', {})
     profile = current_profiles.get(profile_name, {})
 
-    with mic.recorder(samplerate=FS, blocksize=BLOCK_SIZE) as recorder:
+    with mic.recorder(samplerate=DAC_FS, blocksize=BLOCK_SIZE) as recorder:
         while True:
             # ── MODE ATTENTE (Si aucun profil n'est configuré) ─────────
             if not profile_name:
