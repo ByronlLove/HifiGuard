@@ -61,6 +61,7 @@ let lastStateSent = null   // fingerprint pour éviter les IPC inutiles
 let lastTrayZone  = null
 let windowVisible = false
 let isQuitting = false
+let isRestarting = false;
 
 // ── Timers adaptatifs ─────────────────────────────────────
 let uiPollMs   = 250
@@ -91,15 +92,18 @@ function startDaemon() {
     ? [DAEMON_PATH, [], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }]
     : [PYTHON_CMD, ['-X', 'utf8', DAEMON_PATH], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }]
   daemonProcess = spawn(...spawnArgs)
+  restartAttempts = 0
   daemonProcess.stdout.on('data', d => process.stdout.write('[D] ' + d.toString()))
   daemonProcess.stderr.on('data', d => process.stderr.write('[D ERR] ' + d.toString()))
   daemonProcess.on('exit', code => {
     console.log(`[Daemon] Arrêté (code ${code})`)
     daemonProcess = null
+    isRestarting = false
   })
 }
 
 function stopDaemon() {
+  isRestarting = false
   if (daemonProcess) {
     daemonProcess.kill(); 
     daemonProcess = null;
@@ -113,19 +117,21 @@ let restartAttempts = 0;
 const MAX_RESTARTS = 10;
 
 function restartDaemon() {
+  if (isRestarting) return;
   if (restartAttempts >= MAX_RESTARTS) {
     console.log('[System] Nombre maximum de redémarrages atteint (10). Arrêt.');
     return;
   }
 
+  isRestarting = true;
   restartAttempts++;
   console.log(`[System] Redémarrage du daemon (${restartAttempts}/${MAX_RESTARTS})...`);
 
-  exec('taskkill /F /IM hifiguard-daemon.exe', (err, stdout, stderr) => {
-    setTimeout(() => {
-      startDaemon();
-    }, 1000);
-  });
+  stopDaemon();
+
+  setTimeout(() => {
+    startDaemon();
+  }, 1500);
 }
 
 function resetRestartAttempts() {
