@@ -173,7 +173,7 @@ git clone https://github.com/ByronlLove/HifiGuard.git
 npm install
 
 # Installer les dépendances Python
-pip install soundcard numpy scipy pycaw comtypes
+pip install pyinstaller soundcard sounddevice numpy scipy pycaw comtypes
 
 # Lancer
 npm start
@@ -195,7 +195,7 @@ python -m venv venv
 .\venv\Scripts\activate
 
 # 2. Installer les dépendances Python
-pip install pyinstaller soundcard numpy scipy pycaw comtypes
+pip install pyinstaller soundcard sounddevice numpy scipy pycaw comtypes
 
 # 3. Compiler le daemon Python en .exe
 python -m PyInstaller --onefile --noconsole --name hifiguard-daemon --distpath daemon/dist daemon/hifiguard.py --clean
