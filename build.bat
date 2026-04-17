@@ -27,7 +27,7 @@ call .\venv\Scripts\activate
 :: -----------------------------------------
 
 echo [1/5] Installing Python dependencies...
-pip install pyinstaller soundcard numpy scipy pycaw comtypes --quiet
+pip install pyinstaller soundcard sounddevice numpy scipy pycaw comtypes --quiet
 if errorlevel 1 ( echo [ERROR] pip install failed. & pause & exit /b 1 )
 
 echo [2/5] Compiling Python daemon to .exe (PyInstaller)...
