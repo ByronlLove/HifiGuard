@@ -334,6 +334,7 @@ body.dragging #main{pointer-events:none;}
       <div class="logo"><span data-i18n="app_title">Dosimètre auditif</span><small data-i18n="sidebar_sub">NIOSH / OMS</small></div>
       <div class="nav-item active" data-page="today"><span class="nav-icon">◈</span><span data-i18n="nav_today">Aujourd'hui</span></div>
       <div class="nav-item" data-page="calendar"><span class="nav-icon">☷</span><span data-i18n="nav_history">Historique</span></div>
+      <div class="nav-item" data-page="system"><span class="nav-icon">⎔</span><span data-i18n="nav_system">Système & Avancé</span></div>
       <div class="nav-item" data-page="settings"><span class="nav-icon">⚙</span><span data-i18n="nav_settings">Paramètres</span></div>
       <div class="sidebar-spacer"></div>
       <div id="live-panel">
@@ -512,23 +513,139 @@ body.dragging #main{pointer-events:none;}
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
               <span data-i18n="btn_restart_daemon">Relancer le daemon</span>
             </button>
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+              <p style="font-size:12px;color:var(--muted);margin-bottom:10px;" data-i18n="delete_hint">
+                Vous pouvez aussi faire un <strong style="color:var(--text)">clic droit</strong> sur un jour ou un mois dans le calendrier pour supprimer ses données.
+              </p>
+              <div class="btn-row">
+                <button class="btn btn-danger" id="btn-purge-old" style="display:flex;align-items:center;gap:6px;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  <span data-i18n="btn_delete_old">Supprimer données > 90 jours</span>
+                </button>
+              </div>
+            </div>
+          </div> </div> </div> <div class="page" id="page-system">
+        <div style="font-size:19px;font-weight:700;margin-bottom:14px;" data-i18n="nav_system">Système & Avancé</div>
+
+        <div class="form-grid">
+          <div class="card" style="grid-column: 1 / -1;">
+            <div class="card-title">Périphérique d'écoute (WASAPI Loopback)</div>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <select id="sys-audio-device" style="flex:1; padding:8px; background:var(--bg3); border:1px solid var(--border); color:var(--text); border-radius:6px;">
+                <option value="default">Périphérique par défaut de Windows</option>
+              </select>
+              <button class="btn btn-secondary" id="btn-refresh-devices" style="display:flex; align-items:center; gap:6px; padding: 8px 12px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                Actualiser
+              </button>
+            </div>
           </div>
-          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
-            <p style="font-size:12px;color:var(--muted);margin-bottom:10px;" data-i18n="delete_hint">
-              Vous pouvez aussi faire un <strong style="color:var(--text)">clic droit</strong> sur un jour ou un mois dans le calendrier pour supprimer ses données.
-            </p>
-            <div class="btn-row">
-              <button class="btn btn-danger" id="btn-purge-old" style="display:flex;align-items:center;gap:6px;">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                <span data-i18n="btn_delete_old">Supprimer données > 90 jours</span>
+
+          <div class="card" style="grid-column: 1 / -1;">
+            <div class="card-title" style="display:flex; justify-content:space-between;">
+              <span>Console Daemon (Temps Réel)</span>
+              <span id="daemon-status" style="color:var(--safe); font-size:11px;">En ligne</span>
+            </div>
+            <textarea id="sys-console" readonly style="width:100%; height:140px; background:#0a0a0c; color:#e2e8f0; border:1px solid var(--border); border-radius:6px; padding:10px; font-family:monospace; font-size:11px; resize:vertical; min-height:140px;"></textarea>
+          </div>
+
+          <div class="card">
+            <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+              <span>Simulateur SPL</span>
+              <button class="btn btn-secondary" id="btn-sim-load-active" style="font-size:10px; padding:2px 6px;">Charger profil actif</button>
+            </div>
+            <div class="form-grid" style="margin-bottom:10px;">
+              <div class="form-row">
+                <label>Sensibilité</label>
+                <div style="display:flex;gap:6px;">
+                  <input id="sim-sens" type="number" step="0.1" placeholder="96.0" style="flex:1;">
+                  <select id="sim-unit" style="width:75px; padding:4px;">
+                    <option value="dB/mW">dB/mW</option>
+                    <option value="mV/Pa">mV/Pa</option>
+                    <option value="dB/V">dB/V</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row"><label>Impédance (Ω)</label><input id="sim-imp" type="number" placeholder="32"></div>
+              <div class="form-row"><label>DAC Vout (Vrms)</label><input id="sim-vout" type="number" step="0.1" placeholder="1.2"></div>
+              <div class="form-row"><label>Niveau (dBFS)</label><input id="sim-dbfs" type="number" step="0.1" placeholder="-10"></div>
+              <div class="form-row"><label>Volume Windows (%)</label><input id="sim-vol" type="number" step="1" min="1" max="100" value="100"></div>
+              <div class="form-row">
+                <label>Fréquence (Hz) - Optionnel</label>
+                <input id="sim-freq" type="number" step="1" placeholder="ex: 1000 (Ton pur)">
+              </div>
+            </div>
+            <button class="btn btn-secondary" id="btn-simulate" style="width:100%;">Calculer le volume réel</button>
+            <div id="sim-result" style="margin-top:10px; font-size:13px; font-weight:600; color:var(--accent); text-align:center; min-height:18px;"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Limites d'Exposition (Simulées)</div>
+            <div style="display:flex; flex-direction:column; gap:18px; margin-top:10px;">
+              <div>
+                <div style="font-size:11px; color:var(--warn); font-weight:600;">Temps max (NIOSH)</div>
+                <div id="sim-time-niosh" style="font-size:22px; font-weight:bold; color:var(--text);">--</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--safe); font-weight:600;">Temps max (OMS Jour)</div>
+                <div id="sim-time-oms" style="font-size:22px; font-weight:bold; color:var(--text);">--</div>
+              </div>
+              <div style="font-size:11px; color:var(--muted); margin-top:auto; padding-top:12px; border-top:1px solid var(--border);">
+                Durée avant 100% de dose pour <span id="sim-ref-db" style="color:var(--text); font-weight:bold;">-- dB(A)</span>.
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="grid-column: 1 / -1;">
+            <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+              <span>Gestionnaire AutoEq & Comparaison</span>
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:11px; color:var(--warn); font-weight:normal; text-transform:none; letter-spacing:normal;" title="Calcule le son Brut et l'EQ en même temps">
+                <input type="checkbox" id="toggle-compare" style="cursor:pointer; width:14px; height:14px; accent-color:var(--warn);">
+                Mode Comparaison (CPU+)
+              </label>
+            </div>
+          
+            <div id="compare-box" style="display:none; background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:12px; margin-bottom:15px;">
+              <div style="display:flex; justify-content:space-around; align-items:center; text-align:center;">
+                <div>
+                  <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">Son Brut (Sans CSV)</div>
+                  <div id="cmp-raw" style="font-size:18px; font-weight:bold; color:var(--text);">-- dB(A)</div>
+                </div>
+                <div style="width:1px; height:30px; background:var(--border);"></div>
+                <div>
+                  <div style="font-size:11px; color:var(--accent); margin-bottom:4px;">Avec Correction (AutoEQ)</div>
+                  <div id="cmp-eq" style="font-size:18px; font-weight:bold; color:var(--safe);">-- dB(A)</div>
+                </div>
+              </div>
+            </div>
+            <div style="overflow-x: auto;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                  <tr style="text-align: left; color: var(--muted); border-bottom: 1px solid var(--border);">
+                    <th style="padding: 10px 5px;">Profil Matériel</th>
+                    <th style="padding: 10px 5px;">Fichier AutoEq (.csv)</th>
+                    <th style="padding: 10px 5px; text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="autoeq-manager-body">
+                  </tbody>
+              </table>
+            </div>
+            <input type="file" id="file-autoeq-hidden" accept=".csv" style="display: none;">
+            
+            <div style="margin-top:15px; padding-top:15px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+              <div style="font-size:11px; color:var(--muted);">Les fichiers CSV sont stockés localement.</div>
+              <button class="btn btn-primary" id="btn-backup-all" style="display:flex; align-items:center; gap:8px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Exporter Archive .zip
               </button>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
-</div>
+      </div> 
+    </div> 
+  </div> 
+</div> 
 <script>
 ;(async function() {
   if (window.hifi) {
