@@ -49,6 +49,24 @@ let chartDayDirty   = false
 let followMode = false   // scroll auto quand ancré à droite
 let hiresMode  = false   
 
+
+// Fonction officielle : Courbe de pondération A (IEC 61672-1)
+// Calcule l'atténuation exacte en dB(A) pour une fréquence donnée
+function getAWeightingOffset(f) {
+  const f2 = f * f;
+  const c1 = Math.pow(12194, 2);
+  const c2 = Math.pow(20.6, 2);
+  const c3 = Math.pow(107.7, 2);
+  const c4 = Math.pow(737.9, 2);
+  
+  const num = c1 * f2 * f2;
+  const den = (f2 + c2) * Math.sqrt((f2 + c3) * (f2 + c4)) * (f2 + c1);
+  const rA = num / den;
+  
+  // Le +2.000 est la normalisation pour que 1000 Hz donne exactement 0 dB d'atténuation
+  return 20 * Math.log10(rA) + 2.000; 
+}
+
 function applyTranslations() {
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
@@ -129,6 +147,25 @@ function navigateTo(page) {
   currentPage = page
   if (page === 'calendar') renderCalendar()
   if (page === 'settings') renderSettings()
+  if (page === 'system') renderSystem()
+
+  // --- AUTO-KILL DU MODE COMPARAISON ---
+  // Si on quitte l'onglet Système, on coupe le double calcul lourd
+  if (page !== 'system' && window.hifi) {
+    window.hifi.getConfig().then(cfg => {
+      if (cfg && cfg.compare_eq) {
+        cfg.compare_eq = false;
+        window.hifi.saveConfig(cfg).then(() => {
+          // Relance instantanée du daemon en mode léger (un seul calcul)
+          window.hifi.restartDaemon(); 
+        });
+        const toggle = document.getElementById('toggle-compare');
+        if (toggle) toggle.checked = false;
+        const box = document.getElementById('compare-box');
+        if (box) box.style.display = 'none';
+      }
+    });
+  }
 }
 
 // ── Couleur selon dB ─────────────────────────────────────
@@ -281,14 +318,23 @@ window.hifi.onStateUpdate(state => {
 })
 
 function handleLiveState(state) {
-  // hiresBuffer : toujours, que la fenêtre soit visible ou non
   feedHiresBuffer(state)
-  // DOM : seulement si la fenêtre est au premier plan
   if (!document.hidden) {
     updateLive(state)
     updateTitlebar(state)
     if (currentPage === 'today' && !isPaused) {
       appendTodayPoint(state)
+    }
+    // --- MISE À JOUR DU MODE COMPARAISON ---
+    if (currentPage === 'system' && config && config.compare_eq) {
+      const cmpRaw = document.getElementById('cmp-raw');
+      const cmpEq  = document.getElementById('cmp-eq');
+      if (cmpRaw && cmpEq) {
+        // En attendant que Python envoie la vraie valeur brute, on prépare le terrain
+        const rawVal = state.db_a_raw !== undefined ? state.db_a_raw : state.db_a;
+        cmpRaw.textContent = rawVal > 0 ? rawVal.toFixed(1) + ' dB(A)' : '-- dB(A)';
+        cmpEq.textContent  = state.db_a > 0 ? state.db_a.toFixed(1) + ' dB(A)' : '-- dB(A)';
+      }
     }
   }
 }
@@ -1020,7 +1066,13 @@ function renderProfileList() {
       ${!isActive ? `<button class="btn btn-danger" style="font-size:11px" data-delete="${name}">${L.profile_delete||'Delete'}</button>` : ''}
     </div>`
     const ab = item.querySelector('[data-activate]')
-    if (ab) ab.addEventListener('click', async () => { config.active_profile = name; await window.hifi.saveConfig(config); renderProfileList() })
+    if (ab) ab.addEventListener('click', async () => { 
+      config.active_profile = name; 
+      await window.hifi.saveConfig(config); 
+      renderProfileList(); 
+      window.hifi.restartDaemon(); 
+      showToast(L.profile_activated || "Profil activé"); 
+    })
     const db = item.querySelector('[data-delete]')
     if (db) db.addEventListener('click', () => {
       const pname = db.dataset.delete
@@ -1134,6 +1186,9 @@ async function saveRefresh() {
     }
   }
   await window.hifi.saveConfig(config)
+  
+  showToast("Rafraîchissement appliqué. Relance du daemon...");
+  window.hifi.restartDaemon(); 
 }
 
 function renderThresholds() {
@@ -1187,6 +1242,275 @@ function formatDateFR(key) {
   return `${parseInt(d)} ${MONTHS[parseInt(m)-1]} ${y}`
 }
 
+// ══════════════════════════════════════════════════════════
+// SYSTEME & AVANCÉ
+// ══════════════════════════════════════════════════════════
+window.hifi.onDaemonLog((msg) => {
+  const consoleEl = document.getElementById('sys-console');
+  if (consoleEl) {
+    let cleanMsg = msg.replace(/\x1b\[K/g, '').replace(/\r/g, '');
+    
+    if (cleanMsg.trim() !== '') {
+      const isAtBottom = consoleEl.scrollHeight - consoleEl.scrollTop <= consoleEl.clientHeight + 50;
+      
+      // On sauvegarde l'état avant modification
+      const oldScrollTop = consoleEl.scrollTop;
+      const oldScrollHeight = consoleEl.scrollHeight;
+
+      consoleEl.value += cleanMsg + '\n';
+      
+      // On coupe TOUJOURS à 150 lignes maximum pour protéger la RAM
+      const lines = consoleEl.value.split('\n');
+      if (lines.length > 150) {
+        consoleEl.value = lines.slice(-150).join('\n');
+      }
+      
+      if (isAtBottom) {
+        // Si on est en bas, on reste collé en bas
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+      } else {
+        // Magie : on compense la hauteur des lignes supprimées pour que le texte ne bouge pas à l'écran
+        const newScrollHeight = consoleEl.scrollHeight;
+        consoleEl.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
+      }
+    }
+  }
+});
+
+async function renderSystem() {
+  const config = (await window.hifi.getConfig()) || { profiles: {} };  
+
+  // ══════════════════════════════════════════════════════════
+  // 1. GESTION DES PÉRIPHÉRIQUES WASAPI
+  // ══════════════════════════════════════════════════════════
+  const deviceSelect = document.getElementById('sys-audio-device');
+  const btnRefresh = document.getElementById('btn-refresh-devices');
+
+  if (deviceSelect && btnRefresh) {
+    deviceSelect.value = config.audio_device || 'default';
+
+    async function refreshDevices() {
+      btnRefresh.disabled = true;
+      const oldVal = deviceSelect.value;
+      deviceSelect.innerHTML = '<option value="default">Recherche en cours...</option>';
+      
+      const devices = await window.hifi.getAudioDevices();
+      
+      deviceSelect.innerHTML = '<option value="default">Périphérique par défaut de Windows</option>';
+      devices.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.id; 
+        opt.textContent = d.name;
+        deviceSelect.appendChild(opt);
+      });
+      
+      if (devices.find(d => d.id === oldVal)) deviceSelect.value = oldVal;
+      else deviceSelect.value = 'default';
+      
+      btnRefresh.disabled = false;
+    }
+
+    btnRefresh.onclick = refreshDevices;
+
+    deviceSelect.onchange = async () => {
+      config.audio_device = deviceSelect.value;
+      await window.hifi.saveConfig(config);
+      showToast("Périphérique modifié. Relance du daemon...");
+      window.hifi.restartDaemon(); 
+    };
+
+    refreshDevices();
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // 2. SIMULATEUR SPL
+  // ══════════════════════════════════════════════════════════
+  const btnSimLoad = document.getElementById('btn-sim-load-active');
+  const btnSimulate = document.getElementById('btn-simulate');
+
+  if (btnSimLoad) {
+    btnSimLoad.onclick = () => {
+      const profile = config.profiles[config.active_profile];
+      if (profile) {
+        document.getElementById('sim-sens').value = profile.sensitivity;
+        document.getElementById('sim-unit').value = profile.sensitivity_unit || 'dB/mW';
+        document.getElementById('sim-imp').value = profile.impedance;
+        document.getElementById('sim-vout').value = profile.dac_vout;
+      } else {
+        showToast("Aucun profil actif sélectionné.");
+      }
+    };
+  }
+
+  // Fonction pour afficher le temps proprement
+  function formatTime(minutes) {
+    if (minutes === Infinity || minutes > 1440) return "> 24 heures";
+    if (minutes < 1) return "< 1 minute";
+    const h = Math.floor(minutes / 60);
+    const m = Math.floor(minutes % 60);
+    return h > 0 ? `${h}h ${m}m` : `${m} minutes`;
+  }
+
+  if (btnSimulate) {
+    btnSimulate.onclick = () => {
+      const sens = parseFloat(document.getElementById('sim-sens').value);
+      const unit = document.getElementById('sim-unit').value;
+      const imp  = parseFloat(document.getElementById('sim-imp').value);
+      const vout = parseFloat(document.getElementById('sim-vout').value);
+      const dbfs = parseFloat(document.getElementById('sim-dbfs').value);
+      const vol  = parseFloat(document.getElementById('sim-vol').value);
+      const freqStr = document.getElementById('sim-freq').value;
+
+      if (isNaN(sens) || isNaN(imp) || isNaN(vout) || isNaN(dbfs) || isNaN(vol) || vol <= 0) {
+        document.getElementById('sim-result').textContent = "Veuillez remplir tous les champs obligatoires.";
+        return;
+      }
+
+      const maxSpl = computeMaxSpl(sens, unit, imp, vout);
+      const volAttenuation = 20 * Math.log10(vol / 100);
+      const resultZ = maxSpl + dbfs + volAttenuation;
+
+      let resultA, displayMsg;
+
+      if (freqStr && !isNaN(parseFloat(freqStr))) {
+        const freq = parseFloat(freqStr);
+        const offset = getAWeightingOffset(freq);
+        resultA = resultZ + offset;
+        const sign = offset > 0 ? '+' : '';
+        displayMsg = `Ton pur (${freq} Hz) : <span style="color:var(--safe)">${resultA.toFixed(1)} dB(A)</span> <br> <small style="color:var(--muted)">Filtre appliqué : ${sign}${offset.toFixed(1)} dB</small>`;
+      } else {
+        resultA = resultZ - 5;
+        displayMsg = `Musique (Estimé) : <span style="color:var(--safe)">~ ${resultA.toFixed(1)} dB(A)</span> <br> <small style="color:var(--muted)">Filtre estimé : -5.0 dB</small>`;
+      }
+
+      document.getElementById('sim-result').innerHTML = `
+        MAX SPL : ${maxSpl.toFixed(1)} dB <br>
+        Brut physique : <span style="color:var(--muted)">${resultZ.toFixed(1)} dB(Z)</span> <br>
+        ${displayMsg}
+      `;
+
+      // Mise à jour de la carte des limites
+      const nioshMins = resultA < 70 ? Infinity : 480 / Math.pow(2, (resultA - 85) / 3);
+      const omsMins   = resultA < 70 ? Infinity : (2400 / 7) / Math.pow(2, (resultA - 80) / 3);
+
+      const timeNioshEl = document.getElementById('sim-time-niosh');
+      const timeOmsEl   = document.getElementById('sim-time-oms');
+      const refDbEl     = document.getElementById('sim-ref-db');
+
+      if (timeNioshEl && timeOmsEl && refDbEl) {
+        timeNioshEl.textContent = formatTime(nioshMins);
+        timeNioshEl.style.color = nioshMins < 60 ? 'var(--danger)' : 'var(--text)';
+        timeOmsEl.textContent = formatTime(omsMins);
+        timeOmsEl.style.color = omsMins < 60 ? 'var(--danger)' : 'var(--text)';
+        refDbEl.textContent = `${resultA.toFixed(1)} dB(A)`;
+      }
+    };
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // 3. GESTIONNAIRE AUTOEQ & PROFILS
+  // ══════════════════════════════════════════════════════════
+  const managerBody = document.getElementById('autoeq-manager-body');
+  const fileInput = document.getElementById('file-autoeq-hidden');
+  let targetProfileForUpload = null;
+
+  function refreshAutoEqManager() {
+    if (!managerBody) return;
+    managerBody.innerHTML = '';
+
+    Object.entries(config.profiles || {}).forEach(([name, p]) => {
+      const row = document.createElement('tr');
+      row.style.borderBottom = '1px solid var(--bg3)';
+
+      const hasEq = p.autoeq_file;
+      const noEqText = L.autoeq_none || 'Aucun EQ';
+      const fileName = hasEq ? p.autoeq_file : `<span style="color:var(--muted)">${noEqText}</span>`;
+      const activeText = L.profile_active || 'Actif';
+
+      row.innerHTML = `
+        <td style="padding: 10px 5px;"><strong>${name}</strong> ${name === config.active_profile ? `<small style="color:var(--accent); margin-left:5px;">(${activeText})</small>` : ''}</td>
+        <td style="padding: 10px 5px; font-family: monospace; font-size: 11px;">${fileName}</td>
+        <td style="padding: 10px 5px; text-align: right;">
+          <button class="btn btn-secondary" style="font-size:10px; padding:4px 8px;" data-add-eq="${name}">${L.btn_associate || 'Associer'}</button>
+          ${hasEq ? `<button class="btn btn-danger" style="font-size:10px; padding:4px 8px; margin-left:5px;" data-remove-eq="${name}">X</button>` : ''}
+        </td>
+      `;
+
+      row.querySelector(`[data-add-eq="${name}"]`).onclick = () => {
+        targetProfileForUpload = name;
+        fileInput.click();
+      };
+
+      if (hasEq) {
+        row.querySelector(`[data-remove-eq="${name}"]`).onclick = () => {
+          showConfirm(
+            `${L.autoeq_remove_title || "Retirer l'EQ du profil"} "${name}" ?`,
+            L.autoeq_remove_msg || "Le calcul reviendra au profil neutre.",
+            async () => {
+              delete config.profiles[name].autoeq_file;
+              await window.hifi.saveConfig(config);
+              refreshAutoEqManager();
+              showToast(L.autoeq_removed || "Égalisation retirée.");
+              if (name === config.active_profile) window.hifi.restartDaemon();
+            }
+          );
+        };
+      }
+      managerBody.appendChild(row);
+    });
+  }
+  // Gérer l'upload et la copie physique du fichier
+  if (fileInput) {
+    fileInput.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file || !targetProfileForUpload) return;
+
+      // NOUVEAU : Copie physique du fichier dans le dossier data/
+      if (file.path) {
+        const res = await window.hifi.importCsv(file.path, file.name);
+        if (!res.ok) { 
+          showToast(L.autoeq_error_copy || "Erreur de copie du fichier"); 
+          return; 
+        }
+      }
+
+      config.profiles[targetProfileForUpload].autoeq_file = file.name;
+      await window.hifi.saveConfig(config);
+      
+      showToast(`${L.autoeq_associated || "CSV associé à"} ${targetProfileForUpload}`);
+      refreshAutoEqManager();
+
+      if (targetProfileForUpload === config.active_profile) {
+          window.hifi.restartDaemon();
+      }
+      
+      fileInput.value = ''; 
+    };
+  }
+
+  // Interrupteur Mode Comparaison
+  const toggleCompare = document.getElementById('toggle-compare');
+  const compareBox = document.getElementById('compare-box');
+  
+  if (toggleCompare) {
+    toggleCompare.checked = config.compare_eq === true;
+    if (compareBox) compareBox.style.display = toggleCompare.checked ? 'block' : 'none';
+
+    toggleCompare.onchange = async () => {
+      config.compare_eq = toggleCompare.checked;
+      await window.hifi.saveConfig(config);
+      if (compareBox) compareBox.style.display = toggleCompare.checked ? 'block' : 'none';
+      
+      const msgOn = L.compare_mode_on || "Mode Comparaison Activé (Impact CPU+)";
+      const msgOff = L.compare_mode_off || "Mode Comparaison Désactivé";
+      showToast(toggleCompare.checked ? msgOn : msgOff);
+      
+      window.hifi.restartDaemon(); 
+    };
+  }
+
+  refreshAutoEqManager();
+}
 
 // ══════════════════════════════════════════════════════════
 // INIT
