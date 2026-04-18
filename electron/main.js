@@ -93,7 +93,14 @@ function startDaemon() {
     : [PYTHON_CMD, ['-X', 'utf8', DAEMON_PATH], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }]
   daemonProcess = spawn(...spawnArgs)
   restartAttempts = 0
-  daemonProcess.stdout.on('data', d => process.stdout.write('[D] ' + d.toString()))
+  daemonProcess.stdout.on('data', d => {
+    const msg = d.toString();
+    process.stdout.write('[D] ' + msg);
+    if (mainWindow) {
+      // On envoie le log directement à l'interface
+      mainWindow.webContents.send('daemon-log', msg);
+    }
+  });
   daemonProcess.stderr.on('data', d => process.stderr.write('[D ERR] ' + d.toString()))
   daemonProcess.on('exit', code => {
     console.log(`[Daemon] Arrêté (code ${code})`)
@@ -474,6 +481,19 @@ ipcMain.handle('save-config', (_, config) => {
   return true
 })
 
+ipcMain.handle('get-audio-devices', async () => {
+  return new Promise((resolve) => {
+    const cmd = IS_PROD
+      ? `"${DAEMON_PATH}" --list-devices`
+      : `"${PYTHON_CMD}" -X utf8 "${DAEMON_PATH}" --list-devices`
+    require('child_process').exec(cmd, (err, stdout) => {
+      try {
+        resolve(JSON.parse(stdout.trim()))
+      } catch { resolve([]) }
+    })
+  })
+})
+
 // ── CSV : stream async + downsampling ici ─────────────────
 // secondsPerBucket transmis par le renderer (0 = auto)
 // Le renderer reçoit MAX_POINTS points max - jamais les rows brutes
@@ -504,6 +524,16 @@ ipcMain.handle('set-language', async (_, lang) => {
   require('fs').writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2))
   return true
 })
+
+ipcMain.handle('import-csv', (_, sourcePath, fileName) => {
+  try {
+    const dest = path.join(DATA_DIR, fileName);
+    fs.copyFileSync(sourcePath, dest);
+    return { ok: true };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+});
 
 ipcMain.handle('open-data-folder', () => { shell.showItemInFolder(DATA_DIR); return true })
 ipcMain.handle('restart-daemon', () => restartDaemon())
