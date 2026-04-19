@@ -108,6 +108,8 @@ function rafLoop() {
     chartDay.update('none')
     chartDayDirty = false
   }
+  
+
   requestAnimationFrame(rafLoop)
 }
 requestAnimationFrame(rafLoop)
@@ -149,22 +151,46 @@ function navigateTo(page) {
   if (page === 'settings') renderSettings()
   if (page === 'system') renderSystem()
 
-  // --- AUTO-KILL DU MODE COMPARAISON ---
-  // Si on quitte l'onglet Système, on coupe le double calcul lourd
-  if (page !== 'system' && window.hifi) {
-    window.hifi.getConfig().then(cfg => {
-      if (cfg && cfg.compare_eq) {
-        cfg.compare_eq = false;
-        window.hifi.saveConfig(cfg).then(() => {
-          // Relance instantanée du daemon en mode léger (un seul calcul)
-          window.hifi.restartDaemon(); 
-        });
-        const toggle = document.getElementById('toggle-compare');
-        if (toggle) toggle.checked = false;
-        const box = document.getElementById('compare-box');
-        if (box) box.style.display = 'none';
+  // --- AUTO-KILL & DÉMARRAGES LOURDS ---
+  if (window.hifi && config) {
+    let needsRestart = false;
+
+    // 1. Quitter Système : Couper l'AutoEQ (CPU+)
+    if (page !== 'system' && config.compare_eq) {
+      config.compare_eq = false;
+      const toggle = document.getElementById('toggle-compare');
+      if (toggle) toggle.checked = false;
+      const box = document.getElementById('compare-box');
+      if (box) box.style.display = 'none';
+      needsRestart = true;
+    }
+
+    // 2. Quitter Spectre : Couper la FFT (CPU+)
+    if (page !== 'spectrum' && config.spectrum_enabled) {
+      config.spectrum_enabled = false;
+      needsRestart = true;
+    }
+
+    // 3. Entrer sur Spectre : Allumer la FFT (CPU+)
+    if (page === 'spectrum') {
+      const bands = parseInt(document.getElementById('spec-bands').value) || 40;
+      
+      // LA CORRECTION EST ICI : On force toujours la création des étiquettes !
+      updateSpectrumLabels(bands);
+      
+      // On allume le moteur seulement s'il était éteint
+      if (!config.spectrum_enabled) {
+        config.spectrum_enabled = true;
+        config.spectrum_bands = bands;
+        document.getElementById('loading-spectrum').classList.remove('hidden');
+        needsRestart = true;
       }
-    });
+    }
+
+    // Si on a allumé ou éteint un truc lourd, on relance le moteur en fond
+    if (needsRestart) {
+      window.hifi.saveConfig(config).then(() => window.hifi.restartDaemon());
+    }
   }
 }
 
@@ -302,6 +328,27 @@ document.querySelectorAll('.metric-btn').forEach(el => {
 // ══════════════════════════════════════════════════════════
 let livePollInterval = null
 
+// Boucle dédiée au spectre — vitesse maximale, indépendante de l'UI
+function startDedicatedSpectrumLoop() {
+  async function renderSpectrum() {
+    if (currentPage === 'spectrum' && config && config.spectrum_enabled) {
+      try {
+        const state = await window.hifi.getState();
+        if (state && state.spectrum && state.spectrum.length > 0) {
+          window.latestSpectrum = state.spectrum;
+          const loader = document.getElementById('loading-spectrum');
+          if (loader && !loader.classList.contains('hidden')) loader.classList.add('hidden');
+          drawNativeSpectrum(state.spectrum);
+        }
+      } catch (err) {}
+    }
+    requestAnimationFrame(renderSpectrum);
+  }
+  requestAnimationFrame(renderSpectrum);
+}
+
+startDedicatedSpectrumLoop();
+
 function startLivePoll() {
   // Le push IPC state-update arrive maintenant même fenêtre cachée.
   // Fallback poll 1s en secours au cas où le push IPC rate (redémarrage daemon, etc.)
@@ -318,19 +365,21 @@ window.hifi.onStateUpdate(state => {
 })
 
 function handleLiveState(state) {
-  feedHiresBuffer(state)
+  feedHiresBuffer(state);
+  
   if (!document.hidden) {
-    updateLive(state)
-    updateTitlebar(state)
+    updateLive(state);
+    updateTitlebar(state);
+    
     if (currentPage === 'today' && !isPaused) {
-      appendTodayPoint(state)
+      appendTodayPoint(state);
     }
+
     // --- MISE À JOUR DU MODE COMPARAISON ---
     if (currentPage === 'system' && config && config.compare_eq) {
       const cmpRaw = document.getElementById('cmp-raw');
       const cmpEq  = document.getElementById('cmp-eq');
       if (cmpRaw && cmpEq) {
-        // En attendant que Python envoie la vraie valeur brute, on prépare le terrain
         const rawVal = state.db_a_raw !== undefined ? state.db_a_raw : state.db_a;
         cmpRaw.textContent = rawVal > 0 ? rawVal.toFixed(1) + ' dB(A)' : '-- dB(A)';
         cmpEq.textContent  = state.db_a > 0 ? state.db_a.toFixed(1) + ' dB(A)' : '-- dB(A)';
@@ -1245,40 +1294,374 @@ function formatDateFR(key) {
 // ══════════════════════════════════════════════════════════
 // SYSTEME & AVANCÉ
 // ══════════════════════════════════════════════════════════
+// --- GESTION DE LA PAUSE CONSOLE ---
+let isConsolePaused = false;
+let consoleBuffer = [];
+
+function toggleConsolePause() {
+  isConsolePaused = !isConsolePaused;
+  const statusEl = document.getElementById('daemon-status');
+  
+  if (isConsolePaused) {
+    if (statusEl) {
+      statusEl.textContent = '⏸ En pause (Espace pour reprendre)';
+      statusEl.style.color = 'var(--warn)';
+    }
+  } else {
+    if (statusEl) {
+      statusEl.textContent = 'En ligne';
+      statusEl.style.color = 'var(--safe)';
+    }
+    
+    // À la reprise, on injecte tout le texte mis en attente d'un coup
+    const consoleEl = document.getElementById('sys-console');
+    if (consoleEl && consoleBuffer.length > 0) {
+      consoleEl.value += consoleBuffer.join('\n') + '\n';
+      consoleBuffer = []; // On vide la mémoire
+      
+      // On coupe à 100 lignes max pour préserver la RAM
+      const lines = consoleEl.value.split('\n');
+      if (lines.length > 100) {
+        consoleEl.value = lines.slice(-100).join('\n');
+      }
+      
+      // On téléporte la molette tout en bas !
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+  }
+}
+
 window.hifi.onDaemonLog((msg) => {
+  let cleanMsg = msg.replace(/\x1b\[K/g, '').replace(/\r/g, '');
+  if (cleanMsg.trim() === '') return;
+
+  // Si en pause, on stocke secrètement les lignes en arrière-plan
+  if (isConsolePaused) {
+    consoleBuffer.push(cleanMsg);
+    // On limite aussi le buffer à 100 lignes pour éviter 
+    // de saturer la RAM si on laisse en pause trop longtemps
+    if (consoleBuffer.length > 100) {
+      consoleBuffer = consoleBuffer.slice(-100);
+    }
+    return;
+  }
+
+  // Comportement normal (Non-pausé)
   const consoleEl = document.getElementById('sys-console');
   if (consoleEl) {
-    let cleanMsg = msg.replace(/\x1b\[K/g, '').replace(/\r/g, '');
-    
-    if (cleanMsg.trim() !== '') {
-      const isAtBottom = consoleEl.scrollHeight - consoleEl.scrollTop <= consoleEl.clientHeight + 50;
-      
-      // On sauvegarde l'état avant modification
-      const oldScrollTop = consoleEl.scrollTop;
-      const oldScrollHeight = consoleEl.scrollHeight;
+    const isAtBottom = consoleEl.scrollHeight - consoleEl.scrollTop <= consoleEl.clientHeight + 50;
+    const oldScrollTop = consoleEl.scrollTop;
+    const oldScrollHeight = consoleEl.scrollHeight;
 
-      consoleEl.value += cleanMsg + '\n';
-      
-      // On coupe TOUJOURS à 150 lignes maximum pour protéger la RAM
-      const lines = consoleEl.value.split('\n');
-      if (lines.length > 150) {
-        consoleEl.value = lines.slice(-150).join('\n');
-      }
-      
-      if (isAtBottom) {
-        // Si on est en bas, on reste collé en bas
-        consoleEl.scrollTop = consoleEl.scrollHeight;
-      } else {
-        // Magie : on compense la hauteur des lignes supprimées pour que le texte ne bouge pas à l'écran
-        const newScrollHeight = consoleEl.scrollHeight;
-        consoleEl.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
-      }
+    consoleEl.value += cleanMsg + '\n';
+    
+    // On garde toujours 100 lignes max en direct
+    const lines = consoleEl.value.split('\n');
+    if (lines.length > 100) {
+      consoleEl.value = lines.slice(-100).join('\n');
+    }
+    
+    if (isAtBottom) {
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    } else {
+      const newScrollHeight = consoleEl.scrollHeight;
+      consoleEl.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
     }
   }
 });
 
+// --- ANALYSEUR DE SPECTRE ---
+let chartSpectrum = null;
+
+function updateSpectrumLabels(numBands) {
+  if (!chartSpectrum) return;
+  const labels = [];
+  const logMin = Math.log10(20), logMax = Math.log10(20000);
+  const step = (logMax - logMin) / numBands;
+  for (let i=0; i<numBands; i++) {
+    const f = Math.pow(10, logMin + step * (i + 0.5));
+    labels.push(f < 1000 ? Math.round(f) + 'Hz' : (f/1000).toFixed(1) + 'k');
+  }
+  chartSpectrum.data.labels = labels;
+  chartSpectrum.data.datasets[0].data = new Array(numBands).fill(0);
+  chartSpectrum.update('none');
+}
+
+// --- ANALYSEUR DE SPECTRE NATIF (ULTRA-RAPIDE) ---
+let spectrumCanvasCtx = null;
+let spectrumCanvasEl = null;
+
+function initChartSpectrum() {
+  spectrumCanvasEl = document.getElementById('chart-spectrum');
+  spectrumCanvasCtx = spectrumCanvasEl.getContext('2d');
+
+  const bandsSelect = document.getElementById('spec-bands');
+  const bandsCustom = document.getElementById('spec-bands-custom');
+  const customWrap  = document.getElementById('spec-bands-custom-wrap');
+  const weightSelect = document.getElementById('spec-weight');
+
+  if (config) {
+    const b = config.spectrum_bands || 80;
+    // Si la valeur n'est pas dans la liste 20,40,80,160, c'est du personnalisé
+    if ([20, 40, 80, 160].includes(b)) {
+      bandsSelect.value = b;
+      customWrap.style.display = 'none';
+    } else {
+      bandsSelect.value = 'custom';
+      customWrap.style.display = 'flex';
+      bandsCustom.value = b;
+    }
+    weightSelect.value = config.spectrum_weight || 'Z';
+  }
+
+  // Fonction de sauvegarde optimisée (Anti-Lag)
+  const triggerUpdate = async () => {
+    if (!config) return;
+    
+    // On affiche le loader INSTANTANÉMENT pour bloquer les clics parasites
+    document.getElementById('loading-spectrum').classList.remove('hidden');
+
+    let finalBands = parseInt(bandsSelect.value);
+    if (bandsSelect.value === 'custom') {
+      finalBands = parseInt(bandsCustom.value) || 80;
+    }
+
+    config.spectrum_bands  = finalBands;
+    config.spectrum_weight = weightSelect.value;
+
+    await window.hifi.saveConfig(config);
+    
+    // ON AJOUTE UN DÉLAI DE 100ms : 
+    // Cela laisse le temps au menu déroulant de se fermer proprement 
+    // avant que le CPU ne soit réquisitionné par le Daemon.
+    setTimeout(() => {
+      window.hifi.restartDaemon();
+    }, 100);
+  };
+
+  bandsSelect.onchange = () => {
+    if (bandsSelect.value === 'custom') {
+      customWrap.style.display = 'flex';
+      bandsCustom.focus();
+    } else {
+      customWrap.style.display = 'none';
+      triggerUpdate();
+    }
+  };
+
+  bandsCustom.onchange = triggerUpdate;
+  weightSelect.onchange = triggerUpdate;
+}
+
+// --- MOTEUR WEBGL HAUTE PERFORMANCE ---
+let gl = null;
+let glProgram = null;
+let posBuffer = null;
+let posLoc, resLoc, colLoc;
+
+function initWebGL(canvas) {
+  // Fallback de sécurité pour les PC qui n'ont pas le flag WebGL standard
+  gl = canvas.getContext('webgl', { alpha: true, antialias: false }) || 
+       canvas.getContext('experimental-webgl', { alpha: true, antialias: false });
+       
+  if (!gl) {
+    console.error("[WebGL] ❌ Contexte non supporté par la carte graphique.");
+    return false;
+  }
+
+  // Fonction de compilation avec logs d'erreurs
+  function createShader(type, source) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      console.error("[WebGL] ❌ Erreur Shader:", gl.getShaderInfoLog(shader));
+      gl.deleteShader(shader);
+      return null;
+    }
+    return shader;
+  }
+
+  const vsSource = `
+    attribute vec2 a_position;
+    uniform vec2 u_resolution;
+    void main() {
+      vec2 zeroToOne = a_position / u_resolution;
+      vec2 clipSpace = (zeroToOne * 2.0) - 1.0;
+      gl_Position = vec4(clipSpace * vec2(1.0, -1.0), 0.0, 1.0);
+    }
+  `;
+  
+  const fsSource = `
+    precision mediump float;
+    uniform vec4 u_color;
+    void main() {
+      gl_FragColor = u_color;
+    }
+  `;
+
+  const vs = createShader(gl.VERTEX_SHADER, vsSource);
+  const fs = createShader(gl.FRAGMENT_SHADER, fsSource);
+  
+  glProgram = gl.createProgram();
+  gl.attachShader(glProgram, vs);
+  gl.attachShader(glProgram, fs);
+  gl.linkProgram(glProgram);
+  
+  if (!gl.getProgramParameter(glProgram, gl.LINK_STATUS)) {
+    console.error("[WebGL] ❌ Erreur Programme:", gl.getProgramInfoLog(glProgram));
+    return false;
+  }
+
+  posLoc = gl.getAttribLocation(glProgram, "a_position");
+  resLoc = gl.getUniformLocation(glProgram, "u_resolution");
+  colLoc = gl.getUniformLocation(glProgram, "u_color");
+  posBuffer = gl.createBuffer();
+  
+  console.log("[WebGL] ✅ Moteur graphique initialisé avec succès !");
+  return true;
+}
+
+let previousBars = []; 
+
+function drawNativeSpectrum(data) {
+  const glCanvas = document.getElementById('chart-spectrum-gl');
+  if (!spectrumCanvasCtx || !spectrumCanvasEl || !glCanvas || !data || data.length === 0) return;
+
+  const rect = spectrumCanvasEl.getBoundingClientRect();
+  if (rect.width === 0) return; 
+  
+  const dpr = window.devicePixelRatio || 1;
+  const targetWidth = Math.floor(rect.width * dpr);
+  const targetHeight = Math.floor(rect.height * dpr);
+  
+  // Synchronisation des dimensions
+  if (spectrumCanvasEl.width !== targetWidth) spectrumCanvasEl.width = targetWidth;
+  if (spectrumCanvasEl.height !== targetHeight) spectrumCanvasEl.height = targetHeight;
+  if (glCanvas.width !== targetWidth) glCanvas.width = targetWidth;
+  if (glCanvas.height !== targetHeight) glCanvas.height = targetHeight;
+  
+  // Initialisation sécurisée
+  if (!gl) {
+    if (!initWebGL(glCanvas)) return; // Si ça échoue, on abandonne l'image pour ne pas crasher
+  }
+
+  const ctx = spectrumCanvasCtx;
+  const width = spectrumCanvasEl.width;
+  const height = spectrumCanvasEl.height;
+
+  // 1. DESSIN DU CALQUE 2D (Grille et Texte)
+  ctx.clearRect(0, 0, width, height); 
+  ctx.strokeStyle = 'rgba(46, 51, 80, 0.6)';
+  ctx.lineWidth = 1 * dpr;
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = `${10 * dpr}px sans-serif`;
+  ctx.textAlign = 'left';
+
+  const unit = (config && config.spectrum_weight === 'Z') ? 'dB(Z)' : 'dB(A)';
+  const gridLevels = [20, 40, 60, 80, 100];
+  gridLevels.forEach(db => {
+    const yDb = height - (db / 120) * height;
+    ctx.beginPath(); ctx.moveTo(0, yDb); ctx.lineTo(width, yDb); ctx.stroke();
+    ctx.fillText(`${db} ${unit}`, 2 * dpr, yDb - (4 * dpr));
+  });
+  ctx.fillText(`120 ${unit}`, 2 * dpr, 12 * dpr);
+
+  // 2. PRÉPARATION DU BLOC MÉMOIRE WEBGL
+  const numBands = data.length;
+  if (previousBars.length !== numBands) previousBars = new Array(numBands).fill(0);
+  
+  const attackLerp = 0.5; 
+  const decayRateDB = 2.0; 
+  const padding = 1 * dpr;
+
+  const vertices = new Float32Array(numBands * 12);
+  let v = 0;
+
+  for (let i = 0; i < numBands; i++) {
+    let targetDb = Math.max(0, Math.min(data[i], 120)); 
+    
+    if (targetDb > previousBars[i]) {
+      previousBars[i] += (targetDb - previousBars[i]) * attackLerp;
+    } else {
+      previousBars[i] -= decayRateDB;
+      if (previousBars[i] < targetDb) previousBars[i] = targetDb;
+    }
+    if (previousBars[i] < 0) previousBars[i] = 0;
+
+    const barHeight = (previousBars[i] / 120) * height;
+    const startX = Math.floor((i / numBands) * width);
+    const endX = Math.floor(((i + 1) / numBands) * width);
+    const actualBarWidth = Math.max(1, (endX - startX) - padding);
+
+    const x = startX;
+    const y = height - barHeight;
+    const w = actualBarWidth;
+    const h = barHeight;
+
+    vertices[v++] = x;     vertices[v++] = y + h; 
+    vertices[v++] = x + w; vertices[v++] = y + h; 
+    vertices[v++] = x;     vertices[v++] = y;     
+    
+    vertices[v++] = x;     vertices[v++] = y;     
+    vertices[v++] = x + w; vertices[v++] = y + h; 
+    vertices[v++] = x + w; vertices[v++] = y;     
+  }
+
+  // 3. INJECTION WEBGL SÉCURISÉE
+  if (glProgram) {
+    gl.viewport(0, 0, targetWidth, targetHeight);
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    // On désactive les fonctions 3D qui pourraient gêner le rendu 2D
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+
+    gl.useProgram(glProgram);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    gl.enableVertexAttribArray(posLoc);
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+    gl.uniform2f(resLoc, targetWidth, targetHeight);
+    gl.uniform4f(colLoc, 99/255, 102/255, 241/255, 0.9); 
+
+    gl.drawArrays(gl.TRIANGLES, 0, numBands * 6);
+  }
+
+  // 4. ÉTIQUETTES DES FRÉQUENCES
+  const step = Math.max(1, Math.floor(numBands / 12)); 
+  const fList = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 15000, 20000, 25000];
+  
+  for (let i = 0; i < numBands; i += step) {
+    const isLast = (i + step >= numBands);
+    const drawIdx = isLast ? numBands - 1 : i;
+
+    const fIndex = Math.floor((drawIdx / numBands) * fList.length);
+    const f = fList[Math.min(fIndex, fList.length - 1)];
+    const text = f < 1000 ? f + 'Hz' : (f/1000).toFixed(0) + 'k';
+    
+    const startX = Math.floor((drawIdx / numBands) * width);
+    const endX = Math.floor(((drawIdx + 1) / numBands) * width);
+    let textX = startX + ((endX - startX) / 2);
+
+    if (drawIdx === 0) { ctx.textAlign = 'left'; textX = 2 * dpr; } 
+    else if (isLast) { ctx.textAlign = 'right'; textX = width - (2 * dpr); } 
+    else { ctx.textAlign = 'center'; }
+    
+    ctx.fillText(text, textX, height - (4 * dpr));
+    if (isLast) break;
+  }
+}
+
+// Initialiser le chart au démarrage (ajoute cette ligne tout en bas dans la fonction init() juste après initChartDay() ! )
+
 async function renderSystem() {
-  const config = (await window.hifi.getConfig()) || { profiles: {} };  
+  config = (await window.hifi.getConfig()) || { profiles: {} };  
 
   // ══════════════════════════════════════════════════════════
   // 1. GESTION DES PÉRIPHÉRIQUES WASAPI
@@ -1336,6 +1719,25 @@ async function renderSystem() {
         document.getElementById('sim-unit').value = profile.sensitivity_unit || 'dB/mW';
         document.getElementById('sim-imp').value = profile.impedance;
         document.getElementById('sim-vout').value = profile.dac_vout;
+
+        // --- VOYANT AUTOEQ ---
+        const badge = document.getElementById('sim-eq-badge');
+        if (badge) {
+          badge.style.display = 'inline-block';
+          if (profile.autoeq_file) {
+            badge.textContent = `+ EQ: ${profile.autoeq_file}`;
+            badge.style.color = 'var(--safe)';
+            badge.style.border = '1px solid var(--safe)';
+            badge.style.background = 'rgba(34, 197, 94, 0.1)';
+            badge.dataset.haseq = 'true'; // On mémorise pour le calcul
+          } else {
+            badge.textContent = 'Brut (Sans EQ)';
+            badge.style.color = 'var(--warn)';
+            badge.style.border = '1px solid var(--warn)';
+            badge.style.background = 'rgba(249, 115, 22, 0.1)';
+            badge.dataset.haseq = 'false';
+          }
+        }
       } else {
         showToast("Aucun profil actif sélectionné.");
       }
@@ -1343,8 +1745,10 @@ async function renderSystem() {
   }
 
   // Fonction pour afficher le temps proprement
+  // Fonction pour afficher le temps proprement (mise à jour pour la semaine)
   function formatTime(minutes) {
-    if (minutes === Infinity || minutes > 1440) return "> 24 heures";
+    if (minutes === Infinity) return "Illimité (< 70 dB)";
+    if (minutes > 10000) return "> 7 jours"; 
     if (minutes < 1) return "< 1 minute";
     const h = Math.floor(minutes / 60);
     const m = Math.floor(minutes % 60);
@@ -1360,7 +1764,7 @@ async function renderSystem() {
       const dbfs = parseFloat(document.getElementById('sim-dbfs').value);
       const vol  = parseFloat(document.getElementById('sim-vol').value);
       const freqStr = document.getElementById('sim-freq').value;
-
+      
       if (isNaN(sens) || isNaN(imp) || isNaN(vout) || isNaN(dbfs) || isNaN(vol) || vol <= 0) {
         document.getElementById('sim-result').textContent = "Veuillez remplir tous les champs obligatoires.";
         return;
@@ -1369,7 +1773,7 @@ async function renderSystem() {
       const maxSpl = computeMaxSpl(sens, unit, imp, vout);
       const volAttenuation = 20 * Math.log10(vol / 100);
       const resultZ = maxSpl + dbfs + volAttenuation;
-
+      
       let resultA, displayMsg;
 
       if (freqStr && !isNaN(parseFloat(freqStr))) {
@@ -1382,26 +1786,44 @@ async function renderSystem() {
         resultA = resultZ - 5;
         displayMsg = `Musique (Estimé) : <span style="color:var(--safe)">~ ${resultA.toFixed(1)} dB(A)</span> <br> <small style="color:var(--muted)">Filtre estimé : -5.0 dB</small>`;
       }
+      
+      // Avertissement visuel si un fichier EQ est attaché au profil
+      const badge = document.getElementById('sim-eq-badge');
+      let eqWarning = '';
+      if (badge && badge.dataset.haseq === 'true') {
+        eqWarning = `<div style="font-size:10px; color:var(--warn); margin-top:6px; line-height:1.2;">⚠️ Note : L'atténuation (Preamp) du fichier AutoEq n'est pas déduite de cette simulation brute.</div>`;
+      }
 
       document.getElementById('sim-result').innerHTML = `
         MAX SPL : ${maxSpl.toFixed(1)} dB <br>
         Brut physique : <span style="color:var(--muted)">${resultZ.toFixed(1)} dB(Z)</span> <br>
         ${displayMsg}
+        ${eqWarning}
       `;
 
-      // Mise à jour de la carte des limites
+      // --- CALCULS DES LIMITES ---
+      // NIOSH: 480 min (8h) à 85 dB, +3 dB divise le temps par 2
       const nioshMins = resultA < 70 ? Infinity : 480 / Math.pow(2, (resultA - 85) / 3);
-      const omsMins   = resultA < 70 ? Infinity : (2400 / 7) / Math.pow(2, (resultA - 80) / 3);
+      
+      // OMS: 2400 min (40h) par semaine à 80 dB, +3 dB divise le temps par 2
+      const omsWeekMins = resultA < 70 ? Infinity : 2400 / Math.pow(2, (resultA - 80) / 3);
+      const omsDayMins  = omsWeekMins / 7;
 
-      const timeNioshEl = document.getElementById('sim-time-niosh');
-      const timeOmsEl   = document.getElementById('sim-time-oms');
-      const refDbEl     = document.getElementById('sim-ref-db');
+      const timeNioshEl   = document.getElementById('sim-time-niosh');
+      const timeOmsEl     = document.getElementById('sim-time-oms');
+      const timeOmsWeekEl = document.getElementById('sim-time-oms-week');
+      const refDbEl       = document.getElementById('sim-ref-db');
 
-      if (timeNioshEl && timeOmsEl && refDbEl) {
+      if (timeNioshEl && timeOmsEl && timeOmsWeekEl && refDbEl) {
         timeNioshEl.textContent = formatTime(nioshMins);
         timeNioshEl.style.color = nioshMins < 60 ? 'var(--danger)' : 'var(--text)';
-        timeOmsEl.textContent = formatTime(omsMins);
-        timeOmsEl.style.color = omsMins < 60 ? 'var(--danger)' : 'var(--text)';
+        
+        timeOmsEl.textContent = formatTime(omsDayMins);
+        timeOmsEl.style.color = omsDayMins < 60 ? 'var(--danger)' : 'var(--text)';
+        
+        timeOmsWeekEl.textContent = formatTime(omsWeekMins);
+        timeOmsWeekEl.style.color = omsWeekMins < 120 ? 'var(--danger)' : 'var(--text)';
+        
         refDbEl.textContent = `${resultA.toFixed(1)} dB(A)`;
       }
     };
@@ -1410,6 +1832,29 @@ async function renderSystem() {
   // ══════════════════════════════════════════════════════════
   // 3. GESTIONNAIRE AUTOEQ & PROFILS
   // ══════════════════════════════════════════════════════════
+  // --- GESTION DE LA MODALE D'INFORMATION AUTOEQ ---
+  const btnInfo = document.getElementById('btn-autoeq-info');
+  const modalInfo = document.getElementById('modal-info-overlay');
+  const btnCloseInfo = document.getElementById('btn-close-info');
+  const linkAutoEqWeb = document.getElementById('link-autoeq-web');
+
+  if (btnInfo && modalInfo && btnCloseInfo) {
+    btnInfo.onclick = () => modalInfo.style.display = 'flex';
+    btnCloseInfo.onclick = () => modalInfo.style.display = 'none';
+    
+    // Fermer en cliquant à l'extérieur
+    modalInfo.onclick = (e) => {
+      if (e.target === modalInfo) modalInfo.style.display = 'none';
+    };
+  }
+
+  // Ouvrir le lien dans le navigateur par défaut de Windows (pas dans l'app)
+  if (linkAutoEqWeb) {
+    linkAutoEqWeb.onclick = (e) => {
+      e.preventDefault();
+      window.hifi.openExternal('https://autoeq.app');
+    };
+  }
   const managerBody = document.getElementById('autoeq-manager-body');
   const fileInput = document.getElementById('file-autoeq-hidden');
   let targetProfileForUpload = null;
@@ -1477,7 +1922,7 @@ async function renderSystem() {
       config.profiles[targetProfileForUpload].autoeq_file = file.name;
       await window.hifi.saveConfig(config);
       
-      showToast(`${L.autoeq_associated || "CSV associé à"} ${targetProfileForUpload}`);
+      showToast(`${L.autoeq_associated || "Fichier associé à"} ${targetProfileForUpload}`);
       refreshAutoEqManager();
 
       if (targetProfileForUpload === config.active_profile) {
@@ -1501,7 +1946,7 @@ async function renderSystem() {
       await window.hifi.saveConfig(config);
       if (compareBox) compareBox.style.display = toggleCompare.checked ? 'block' : 'none';
       
-      const msgOn = L.compare_mode_on || "Mode Comparaison Activé (Impact CPU+)";
+      const msgOn = L.compare_mode_on || "Mode Comparaison Activé";
       const msgOff = L.compare_mode_off || "Mode Comparaison Désactivé";
       showToast(toggleCompare.checked ? msgOn : msgOff);
       
@@ -1546,6 +1991,7 @@ async function init() {
   // Pré-créer les deux charts dès le boot
   initChartToday()
   initChartDay()
+  initChartSpectrum()
 
   renderDoseBars(null)
   await reloadTodayFromCSV()
@@ -1556,10 +2002,19 @@ async function init() {
   startLivePoll()
 
   document.addEventListener('keydown', e => {
-    if (e.code === 'Space' && currentPage === 'today') {
-      e.preventDefault(); togglePause()
+    if (e.code === 'Space') {
+      // On empêche la pause si on est en train de taper dans un champ de texte (ex: nom du profil)
+      if ((e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') && e.target.id !== 'sys-console') return;
+      
+      if (currentPage === 'today') {
+        e.preventDefault(); 
+        togglePause();
+      } else if (currentPage === 'system') {
+        e.preventDefault();
+        toggleConsolePause();
+      }
     }
-  })
+  });
 }
 
 init()
