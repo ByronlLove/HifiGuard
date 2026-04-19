@@ -9,6 +9,9 @@ import sys
 import os
 from pathlib import Path
 
+import warnings
+warnings.simplefilter("ignore")
+
 if getattr(sys, 'frozen', False):
     try:
         app_root = Path(os.environ.get('APPDATA', '')) / "HifiGuard"
@@ -16,12 +19,8 @@ if getattr(sys, 'frozen', False):
         log_file = app_root / "daemon_errors.log"
         
         f_err = open(log_file, 'a', encoding='utf-8', buffering=1)
-        
         # On ne redirige QUE les erreurs critiques (crashes, bugs) vers le fichier texte
         sys.stderr = f_err
-        
-        # On envoie l'affichage normal (les dB) dans le vide spatial pour ne pas saturer le disque
-        sys.stdout = open(os.devnull, 'w') 
     except Exception:
         pass
 
@@ -160,7 +159,6 @@ def get_active_profile(config):
     # Si tout va bien, on charge le profil normalement
     profile = profiles[name]
     max_spl, sens_dbmw = compute_max_spl(profile)
-    
     return name, profile, max_spl, sens_dbmw
 
 # ══════════════════════════════════════════════════════════
@@ -187,6 +185,84 @@ def build_a_weighting_filter(fs):
     dens = np.polymul(dens, [1, 2*np.pi*f3])
     dens = np.polymul(dens, [1, 2*np.pi*f2])
     return signal.bilinear(nums, dens, fs)
+
+# ══════════════════════════════════════════════════════════
+# NOUVEAU : GÉNÉRATEUR DE FILTRE AUTOEQ (FIR)
+# ══════════════════════════════════════════════════════════
+def build_autoeq_filter(filepath, fs, numtaps=1025):
+    """
+    Lit un fichier GraphicEQ (.txt) et génère un filtre FIR interpolé.
+    numtaps = 1025 (Impair = Type I) permet d'avoir un gain précis même à Nyquist.
+    """
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        if not content.startswith('GraphicEQ:'):
+            return None
+
+        points_str = content.replace('GraphicEQ:', '').strip().split(';')
+        freqs, gains = [], []
+        
+        for p in points_str:
+            parts = p.strip().split()
+            if len(parts) == 2:
+                freqs.append(float(parts[0]))
+                gains.append(float(parts[1]))
+
+        if not freqs:
+            return None
+
+        # Nettoyage et tri strict des fréquences
+        fg = sorted(list(set(zip(freqs, gains))), key=lambda x: x[0])
+        freqs = [x[0] for x in fg]
+        gains = [x[1] for x in fg]
+        # --- LOGIQUE ACOUSTIQUE : INVERSION & NORMALISATION ---
+        # 1. On trouve l'indice de la fréquence la plus proche de 1000 Hz
+        idx_1k = min(range(len(freqs)), key=lambda i: abs(freqs[i] - 1000.0))
+        gain_1k = gains[idx_1k]
+
+        # 2. On inverse la courbe ET on la recale pour que 1000 Hz = 0 dB
+        # Formule : Gain_Acoustique = Gain_AutoEq(1000Hz) - Gain_AutoEq(f)
+        gains = [gain_1k - g for g in gains]
+        # ------------------------------------------------------
+
+        nyq = fs / 2.0
+
+        # On s'assure que la courbe commence bien à 0 Hz
+        if freqs[0] > 0:
+            freqs.insert(0, 0.0)
+            gains.insert(0, gains[0])
+
+        # On s'assure que la courbe va jusqu'à la limite du DAC (Nyquist)
+        if freqs[-1] < nyq:
+            freqs.append(nyq)
+            gains.append(gains[-1])
+
+        freqs_norm = []
+        amps = []
+        
+        for f, g in zip(freqs, gains):
+            fn = min(1.0, f / nyq)
+            # scipy.firwin2 exige des fréquences strictement croissantes
+            if not freqs_norm or fn > freqs_norm[-1]:
+                freqs_norm.append(fn)
+                # Conversion du Gain (dB) en multiplicateur d'Amplitude linéaire
+                amps.append(10 ** (g / 20.0))
+
+        # Borner la fin exactement à 1.0
+        if freqs_norm[-1] < 1.0:
+            freqs_norm.append(1.0)
+            amps.append(amps[-1])
+        else:
+            freqs_norm[-1] = 1.0
+
+        # Génération de la courbe interpolée via firwin2
+        taps = signal.firwin2(numtaps, freqs_norm, amps)
+        return taps
+    except Exception as e:
+        print(f"\n[AutoEq] Erreur lors de la création du filtre: {e}")
+        return None
 
 # ══════════════════════════════════════════════════════════
 # DOSE
@@ -257,63 +333,62 @@ class AudioTracker:
         self._csv_buf_z   = max(self._csv_buf_z, db_z)
         self._csv_buf_a   = max(self._csv_buf_a, db_a)
         self._csv_buf_vol = vol_db
+        
+        # 1. On calcule la dose à chaque micro-frame (précision maximale)
+        if db_a >= 70:
+            today = datetime.now().strftime('%Y-%m-%d')
+            if today not in self.data:
+                self.data[today] = {
+                    'dose_niosh_pct':    0.0,
+                    'dose_who_day_pct':  0.0,
+                    'dose_who_week_pct': 0.0,
+                    'max_db_a':          0.0,
+                    'minutes_above_80':  0.0,
+                    'minutes_above_85':  0.0,
+                    'profile':           profile_name,
+                    '_sum_a':     0.0, '_count_a': 0,
+                    '_sum_z':     0.0, '_count_z': 0,
+                    '_buckets_a': {},
+                }
+            d = self.data[today]
+            minutes = seconds / 60.0
+
+            t_n = permissible_minutes_niosh(db_a)
+            t_d = permissible_minutes_who_day(db_a)
+            t_w = permissible_minutes_who_week(db_a)
+
+            d['dose_niosh_pct']    += (minutes/t_n)*100 if t_n > 0 else 100
+            d['dose_who_day_pct']  += (minutes/t_d)*100 if t_d > 0 else 100
+            d['dose_who_week_pct'] += (minutes/t_w)*100 if t_w > 0 else 100
+            d['max_db_a']           = max(d['max_db_a'], round(db_a, 1))
+            if db_a >= 80: d['minutes_above_80'] += minutes
+            if db_a >= 85: d['minutes_above_85'] += minutes
+
+            # Moyenne et médiane dB(A)/dB(Z)
+            if '_sum_a' not in d:
+                d['_sum_a'] = 0.0; d['_count_a'] = 0
+                d['_sum_z'] = 0.0; d['_count_z'] = 0
+                d['_buckets_a'] = {}
+            d['_sum_a']  += db_a; d['_count_a'] += 1
+            d['_sum_z']  += db_z; d['_count_z'] += 1
+            bk = str(round(db_a * 2) / 2)  
+            d['_buckets_a'][bk] = d['_buckets_a'].get(bk, 0) + 1
+            d['mean_db_a']   = round(d['_sum_a'] / d['_count_a'], 1)
+            d['mean_db_z']   = round(d['_sum_z'] / d['_count_z'], 1)
+
+            total_pts = sum(d['_buckets_a'].values())
+            half_pts  = total_pts / 2
+            cum       = 0
+            for bv in sorted(d['_buckets_a'].keys(), key=float):
+                cum += d['_buckets_a'][bv]
+                if cum >= half_pts:
+                    d['median_db_a'] = float(bv)
+                    break
+
+        # 2. SAUVEGARDE ANTI-AMNÉSIE (Toutes les 1 seconde au lieu de 30)
+        # Quoi qu'il arrive, la dose est blindée sur le disque dur.
         if time.time() - self._csv_buf_ts >= 1.0:
             self._flush_csv(profile_name)
-
-        # Dose  - calculée à chaque frame (précision maximale)
-        if db_a < 70:
-            return
-
-        today = datetime.now().strftime('%Y-%m-%d')
-        if today not in self.data:
-            self.data[today] = {
-                'dose_niosh_pct':    0.0,
-                'dose_who_day_pct':  0.0,
-                'dose_who_week_pct': 0.0,
-                'max_db_a':          0.0,
-                'minutes_above_80':  0.0,
-                'minutes_above_85':  0.0,
-                'profile':           profile_name,
-                '_sum_a':     0.0, '_count_a': 0,
-                '_sum_z':     0.0, '_count_z': 0,
-                '_buckets_a': {},
-            }
-        d = self.data[today]
-        minutes = seconds / 60.0
-
-        t_n = permissible_minutes_niosh(db_a)
-        t_d = permissible_minutes_who_day(db_a)
-        t_w = permissible_minutes_who_week(db_a)
-
-        d['dose_niosh_pct']    += (minutes/t_n)*100 if t_n > 0 else 100
-        d['dose_who_day_pct']  += (minutes/t_d)*100 if t_d > 0 else 100
-        d['dose_who_week_pct'] += (minutes/t_w)*100 if t_w > 0 else 100
-        d['max_db_a']           = max(d['max_db_a'], round(db_a, 1))
-        if db_a >= 80: d['minutes_above_80'] += minutes
-        if db_a >= 85: d['minutes_above_85'] += minutes
-        # Moyenne et médiane db(A)/db(Z)
-        if '_sum_a' not in d:
-            d['_sum_a'] = 0.0; d['_count_a'] = 0
-            d['_sum_z'] = 0.0; d['_count_z'] = 0
-            d['_buckets_a'] = {}
-        d['_sum_a']  += db_a; d['_count_a'] += 1
-        d['_sum_z']  += db_z; d['_count_z'] += 1
-        bk = str(round(db_a * 2) / 2)  # bucket 0.5 dB pour médiane approx
-        d['_buckets_a'][bk] = d['_buckets_a'].get(bk, 0) + 1
-        d['mean_db_a']   = round(d['_sum_a'] / d['_count_a'], 1)
-        d['mean_db_z']   = round(d['_sum_z'] / d['_count_z'], 1)
-        # Médiane approx depuis les buckets
-        total_pts = sum(d['_buckets_a'].values())
-        half_pts  = total_pts / 2
-        cum       = 0
-        for bv in sorted(d['_buckets_a'].keys(), key=float):
-            cum += d['_buckets_a'][bv]
-            if cum >= half_pts:
-                d['median_db_a'] = float(bv)
-                break
-
-        self._frame_count += 1
-        if self._frame_count % save_every == 0:
             self.save_json()
 
     def weekly_who_dose(self):
@@ -332,9 +407,9 @@ class AudioTracker:
         })
 
 # ══════════════════════════════════════════════════════════
-# STATE.JSON  - écriture sans plantage sur Windows
+# STATE.JSON - écriture sans plantage sur Windows
 # ══════════════════════════════════════════════════════════
-def write_state(db_a, db_z, vol_db, stats, week_who, profile_name, refresh_cfg):
+def write_state(db_a, db_z, vol_db, stats, week_who, profile_name, refresh_cfg, db_a_raw=None, spectrum=None):
     state = {
         'ts':           datetime.now().isoformat(timespec='milliseconds'),
         'db_a':         round(db_a, 1),
@@ -347,6 +422,12 @@ def write_state(db_a, db_z, vol_db, stats, week_who, profile_name, refresh_cfg):
         'max_db_a':     stats['max_db_a'],
         'refresh':      refresh_cfg,   # transmis à Electron pour qu'il adapte ses timers
     }
+    # On ajoute la valeur brute sans correction si on est en mode comparaison
+    if db_a_raw is not None:
+        state['db_a_raw'] = round(db_a_raw, 1)
+    if spectrum is not None:
+        state['spectrum'] = spectrum
+
     try:
         with open(STATE_PATH, 'w', encoding='utf-8') as f:
             json.dump(state, f)
@@ -392,120 +473,266 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
         wasapi_info = sd.query_hostapis(wasapi_id)
         device_info = sd.query_devices(wasapi_info['default_output_device'])
         DAC_FS = int(device_info['default_samplerate'])
+        
+        # --- NOUVEAU : LECTURE DU BUFFER WINDOWS ---
+        hw_latency_ms = device_info.get('default_low_output_latency', 0.0) * 1000
+        print(f"\n[Système] Buffer matériel Windows détecté : ~{hw_latency_ms:.1f} ms")
+        print(f"[Python] Demande de paquets audio bloquants : 10.0 ms\n")
+        
     except Exception as e:
-        print(f"Erreur détection Hz, fallback à 44100: {e}")
+        print(f'[DAC] Détection échouée ({e}), fallback à 44100 Hz')
         DAC_FS = 44100
     # ------------------------------------------
 
-    BLOCK_SIZE        = max(int(DAC_FS * python_ms / 1000), 256)
+    BLOCK_SIZE        = int(DAC_FS * 10 / 1000)
     seconds_per_block = BLOCK_SIZE / DAC_FS
     save_every        = max(1, int(30000 / python_ms))
 
+    # Filtre A-Weighting de base
     b, a = build_a_weighting_filter(DAC_FS)
-    zi   = signal.lfilter_zi(b, a)
+    zi     = signal.lfilter_zi(b, a)
+    zi_raw = signal.lfilter_zi(b, a)  # Utilisé uniquement en mode comparaison CPU+
 
     devices = AudioUtilities.GetSpeakers()
     volume  = devices.EndpointVolume
 
-    speaker = sc.default_speaker()
-    mic     = sc.get_microphone(id=speaker.name, include_loopback=True)
-    print(f'Monitoring : {mic.name} (@ {DAC_FS} Hz)')
+    # --- NOUVEAU : Écoute du DAC spécifique sélectionné ---
+    device_name = config.get('audio_device', 'default')
+    try:
+        if device_name and device_name != 'default':
+            speaker = sc.get_speaker(id=device_name)
+        else:
+            speaker = sc.default_speaker()
+    except Exception as e:
+        print(f"Erreur périphérique {device_name}, retour au défaut. ({e})")
+        speaker = sc.default_speaker()
 
+    # --- NOUVEAU : On force Python à prendre le "Loopback" et à ignorer l'entrée Micro ---
+    all_mics = sc.all_microphones(include_loopback=True)
+    mic = None
+    
+    # On cherche le périphérique qui a le bon nom ET qui est un flux interne (Loopback)
+    for m in all_mics:
+        if getattr(m, 'isloopback', False) and m.name == speaker.name:
+            mic = m
+            break
+            
+    # Sécurité de secours
+    if not mic:
+        mic = sc.get_microphone(id=speaker.name, include_loopback=True)
+
+    print(f'Monitoring : {mic.name} (Loopback) (@ {DAC_FS} Hz)')
     current_profiles = config.get('profiles', {})
     profile = current_profiles.get(profile_name, {})
 
+    # Variables pour stocker le filtre EQ en mémoire
+    fft_window_size = 8192
+    fft_buffer = np.zeros(fft_window_size)
+    
+    current_autoeq_file = None
+    taps = None
+    zi_eq = None
+
+    import warnings
     with mic.recorder(samplerate=DAC_FS, blocksize=BLOCK_SIZE) as recorder:
-        while True:
-            # ── MODE ATTENTE (Si aucun profil n'est configuré) ─────────
-            if not profile_name:
-                time.sleep(1.0)
-                stats = tracker.today_stats()
-                write_state(0.0, 0.0, 0.0, stats, tracker.weekly_who_dose(), "En attente de configuration...", refresh_cfg)
-                
-                try:
-                    new_cfg = load_config()
-                    if new_cfg.get('active_profile') and new_cfg.get('active_profile') in new_cfg.get('profiles', {}):
-                        return 'config_changed'
-                except Exception: pass
-                continue
-            # ───────────────────────────────────────────────────────────
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            while True:
 
-            # ── VÉRIFICATION DE LA CONFIG (Toutes les ~5 secondes) ─────
-            if tracker._frame_count % max(1, int(5000/python_ms)) == 0:
-                try:
-                    new_cfg = load_config()
-                    new_profile_name = new_cfg.get('active_profile')
+                # ── MODE ATTENTE (Si aucun profil n'est configuré) ─────────
+                if not profile_name:
+                    time.sleep(1.0)
+                    stats = tracker.today_stats()
+                    write_state(0.0, 0.0, 0.0, stats, tracker.weekly_who_dose(), "En attente de configuration...", refresh_cfg)
+                    try:
+                        new_cfg = load_config()
+                        if new_cfg.get('active_profile') and new_cfg.get('active_profile') in new_cfg.get('profiles', {}):
+                            return 'config_changed'
+                    except Exception: pass
+                    continue
 
-                    # CAS 1 : Changement structurel -> REDÉMARRAGE COMPLET
-                    # (Si on change de mode de rafraîchissement ou de nom de profil)
-                    if new_cfg.get('refresh_mode') != config.get('refresh_mode') or \
-                       new_profile_name != profile_name:
-                        return 'config_changed'
+                # ── VÉRIFICATION DE LA CONFIG (Toutes les ~5 secondes) ─────
+                if tracker._frame_count % max(1, int(5000/python_ms)) == 0:
+                    try:
+                        new_cfg = load_config()
+                        new_profile_name = new_cfg.get('active_profile')
+                        if new_cfg.get('refresh_mode') != config.get('refresh_mode') or \
+                           new_profile_name != profile_name or \
+                           new_cfg.get('compare_eq', False) != config.get('compare_eq', False):
+                            return 'config_changed'
+                        if new_profile_name:
+                            new_profile_data = new_cfg.get('profiles', {}).get(new_profile_name)
+                            if new_profile_data != profile:
+                                profile = new_profile_data
+                                MAX_SPL, sens_dbmw = compute_max_spl(profile)
+                                print(f'\n[Live] Paramètres mis à jour : {MAX_SPL:.1f} dB (Sensi: {sens_dbmw:.1f})')
+                    except Exception:
+                        pass
 
-                    # CAS 2 : Changement de paramètres matériels -> MISE À JOUR À CHAUD
-                    # (Si c'est le même profil mais que l'impédance/sensibilité/Vout a changé)
-                    if new_profile_name:
-                        new_profile_data = new_cfg.get('profiles', {}).get(new_profile_name)
-                        if new_profile_data != profile:
-                            profile = new_profile_data
-                            # On recalcule MAX_SPL sans couper le flux audio
-                            MAX_SPL, sens_dbmw = compute_max_spl(profile)
-                            print(f'\n[Live] Paramètres mis à jour : {MAX_SPL:.1f} dB (Sensi: {sens_dbmw:.1f})')
-                except Exception:
-                    pass
+                # ── VÉRIFICATION ET CHARGEMENT DU FILTRE AUTOEQ ──
+                has_eq = bool(profile.get('autoeq_file'))
+                compare_mode = config.get('compare_eq', False)
 
-            # ── CAPTURE ET CALCULS ─────────────────────────────────────
-            vol_db   = volume.GetMasterVolumeLevel()
-            is_muted = (vol_db < -60)
+                if has_eq and profile['autoeq_file'] != current_autoeq_file:
+                    current_autoeq_file = profile['autoeq_file']
+                    eq_path = os.path.join(DATA_DIR, current_autoeq_file)
+                    if os.path.exists(eq_path):
+                        taps = build_autoeq_filter(eq_path, DAC_FS)
+                        if taps is not None:
+                            zi_eq = signal.lfilter_zi(taps, [1.0])
+                            print(f'\n[AutoEq] Filtre FIR chargé avec succès : {current_autoeq_file}')
+                        else:
+                            print(f'\n[AutoEq] Fichier invalide ou mal formaté : {current_autoeq_file}')
+                    else:
+                        print(f'\n[AutoEq] Fichier introuvable : {current_autoeq_file}')
+                        taps = None
+                elif not has_eq and current_autoeq_file is not None:
+                    current_autoeq_file = None
+                    taps = None
+                    zi_eq = None
 
-            data = recorder.record(numframes=BLOCK_SIZE)
-            if len(data.shape) > 1:
-                data = np.mean(data, axis=1)
+                # ── CAPTURE ET CALCULS ─────────────────────────────────────
+                vol_db   = volume.GetMasterVolumeLevel()
+                is_muted = (vol_db < -60)
 
-            rms_raw = np.sqrt(np.mean(data**2))
+                data = recorder.record(numframes=BLOCK_SIZE)
+                if len(data.shape) > 1:
+                    data = np.mean(data, axis=1)
 
-            # Gestion du silence
-            if rms_raw < SILENCE_THRESHOLD or is_muted:
-                if time.time() - tracker._csv_buf_ts >= 1.0:
-                    tracker._flush_csv(profile_name)
+                rms_raw = np.sqrt(np.mean(data**2))
+
+                # 1. Gestion du silence
+                if rms_raw < SILENCE_THRESHOLD or is_muted:
+                    if time.time() - tracker._csv_buf_ts >= 1.0:
+                        tracker._flush_csv(profile_name)
+                    stats    = tracker.today_stats()
+                    week_who = tracker.weekly_who_dose()
+                    write_state(0.0, 0.0, vol_db, stats, week_who, profile_name, refresh_cfg)
+                    continue
+
+                # 2. Calcul dB(Z) Brut Physique
+                db_z = max(0.0, min(MAX_SPL + 20*np.log10(rms_raw + 1e-12) + vol_db, CEILING_DB))
+                db_a_raw = None
+
+                # 3. Application du Filtre AutoEQ (si présent)
+                if taps is not None:
+                    data_eq, zi_eq = signal.lfilter(taps, [1.0], data, zi=zi_eq)
+                else:
+                    data_eq = data
+
+                # 4. Mode Comparaison CPU+ (Avant le filtre A)
+                if compare_mode:
+                    if taps is not None:
+                        data_a_raw_buf, zi_raw = signal.lfilter(b, a, data, zi=zi_raw)
+                        rms_a_raw = np.sqrt(np.mean(data_a_raw_buf**2))
+                        db_a_raw = max(0.0, min(MAX_SPL + 20*np.log10(rms_a_raw + 1e-12) + vol_db, CEILING_DB))
+                    else:
+                        db_a_raw = None
+
+                # 5. Calcul dB(A) FINAL (Sur la musique égalisée)
+                data_a, zi = signal.lfilter(b, a, data_eq, zi=zi)
+                rms_a = np.sqrt(np.mean(data_a**2))
+                db_a  = max(0.0, min(MAX_SPL + 20*np.log10(rms_a + 1e-12) + vol_db, CEILING_DB))
+
+                if compare_mode and taps is None:
+                    db_a_raw = db_a
+
+                # 6. ANALYSEUR DE SPECTRE
+                current_spectrum = None
+                spectrum_enabled = config.get('spectrum_enabled', False)
+
+                if spectrum_enabled:
+                    n_data = len(data_eq)
+                    n_buf = len(fft_buffer)
+                    if n_data >= n_buf:
+                        fft_buffer[:] = data_eq[-n_buf:]
+                    else:
+                        fft_buffer = np.roll(fft_buffer, -n_data)
+                        fft_buffer[-n_data:] = data_eq
+
+                    FB_FREQS = [
+                        50, 54, 59, 63, 74, 80, 87, 94, 102, 110, 119, 129, 139, 150, 163, 176, 191, 206, 223, 241,
+                        261, 282, 306, 331, 358, 387, 419, 453, 490, 530, 574, 620, 671, 726, 786, 850, 920, 1000,
+                        1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000, 2200, 2400, 2600, 2800, 3000,
+                        3200, 3500, 3800, 4100, 4400, 4800, 5200, 5600, 6100, 6600, 7100, 7700, 8300, 9000, 10000,
+                        11000, 12000, 13000, 14000, 16000, 17000, 18000, 20000, 21000, 23000, 25000
+                    ]
+
+                    spectrum_bands = int(config.get('spectrum_bands', 80))
+
+                    if spectrum_bands <= 80:
+                        step = max(1, len(FB_FREQS) // max(1, spectrum_bands))
+                        log_bounds = [FB_FREQS[i] for i in range(0, len(FB_FREQS), step)]
+                        if len(log_bounds) < spectrum_bands + 1:
+                            log_bounds.append(FB_FREQS[-1])
+                    else:
+                        x_old = np.linspace(0, 1, len(FB_FREQS))
+                        x_new = np.linspace(0, 1, spectrum_bands + 1)
+                        log_bounds = 10 ** np.interp(x_new, x_old, np.log10(FB_FREQS))
+
+                    window_h = np.hanning(len(fft_buffer))
+                    fft_res = np.abs(np.fft.rfft(fft_buffer * window_h))
+                    freqs = np.fft.rfftfreq(len(fft_buffer), 1.0 / DAC_FS)
+                    fft_db = 20 * np.log10(fft_res / len(fft_buffer) + 1e-12) + MAX_SPL + vol_db
+
+                    weight_mode = config.get('spectrum_weight', 'Z')
+                    if weight_mode == 'A':
+                        freqs_safe = np.maximum(freqs, 1e-6)
+                        f2 = freqs_safe**2
+                        c1, c2, c3, c4 = 12194.217**2, 20.598997**2, 107.65265**2, 737.86223**2
+                        Ra = (c1 * f2**2) / ((f2 + c2) * np.sqrt((f2 + c3) * (f2 + c4)) * (f2 + c1))
+                        fft_db = fft_db + (20 * np.log10(Ra + 1e-12) + 2.0)
+
+                    indices = np.searchsorted(freqs, log_bounds)
+                    band_dbs = []
+
+                    for i in range(len(log_bounds) - 1):
+                        i1, i2 = indices[i], indices[i+1]
+                        if i1 < i2:
+                            val = np.max(fft_db[i1:i2])
+                        else:
+                            center_f = np.sqrt(log_bounds[i] * log_bounds[i+1])
+                            exact_idx = center_f * (len(fft_buffer) / DAC_FS)
+                            idx1_int, idx2_int = int(np.floor(exact_idx)), int(np.ceil(exact_idx))
+                            if idx2_int < len(fft_db):
+                                frac = exact_idx - idx1_int
+                                val = fft_db[idx1_int] * (1-frac) + fft_db[idx2_int] * frac
+                            else:
+                                val = fft_db[-1]
+                        band_dbs.append(max(0.0, float(val)))
+
+                    current_spectrum = band_dbs
+
+                # 7. Enregistrement des données et interface
+                tracker.record(db_z, db_a, vol_db, profile_name, seconds_per_block, save_every)
                 stats    = tracker.today_stats()
                 week_who = tracker.weekly_who_dose()
-                write_state(0.0, 0.0, vol_db, stats, week_who, profile_name, refresh_cfg)
-                continue
 
-            # Calcul dB(Z)
-            db_z = max(0.0, min(
-                MAX_SPL + 20*np.log10(rms_raw + 1e-12) + vol_db,
-                CEILING_DB
-            ))
+                write_state(db_a, db_z, vol_db, stats, week_who, profile_name, refresh_cfg, db_a_raw, current_spectrum)
 
-            # Calcul dB(A)
-            data_a, zi = signal.lfilter(b, a, data, zi=zi)
-            rms_a = np.sqrt(np.mean(data_a**2))
-            db_a  = max(0.0, min(
-                MAX_SPL + 20*np.log10(rms_a + 1e-12) + vol_db,
-                CEILING_DB
-            ))
-
-            # Enregistrement des données
-            tracker.record(db_z, db_a, vol_db, profile_name, seconds_per_block, save_every)
-            stats    = tracker.today_stats()
-            week_who = tracker.weekly_who_dose()
-            write_state(db_a, db_z, vol_db, stats, week_who, profile_name, refresh_cfg)
-
-            # Affichage console (Daemon)
-            info = (
-                f'\r{risk_label(db_a)}{bar(db_a)} '
-                f'Z:{db_z:5.1f} A:{db_a:5.1f} dB(A) | '
-                f'N:{stats["dose_niosh_pct"]:5.1f}% | '
-                f'O/j:{stats["dose_who_day_pct"]:5.1f}% | '
-                f'O/7j:{week_who:5.1f}% | '
-                f'Max:{stats["max_db_a"]:.1f}'
-            )
-            sys.stdout.write('\033[K' + info)
-            sys.stdout.flush()
-
+                # Affichage console (Daemon)
+                info = (
+                    f'\r{risk_label(db_a)}{bar(db_a)} '
+                    f'Z:{db_z:5.1f} A:{db_a:5.1f} dB(A) | '
+                    f'N:{stats["dose_niosh_pct"]:5.1f}% | '
+                    f'O/j:{stats["dose_who_day_pct"]:5.1f}% | '
+                    f'O/7j:{week_who:5.1f}% | '
+                    f'Max:{stats["max_db_a"]:.1f}'
+                )
+                sys.stdout.write('\033[K' + info)
+                sys.stdout.flush()
 def main():
+    if '--list-devices' in sys.argv:
+        try:
+            import soundcard as sc
+            import json
+            spks = sc.all_speakers()
+            res = [{'id': s.name, 'name': s.name} for s in spks]
+            print(json.dumps(res))
+        except Exception:
+            print("[]")
+        return
+
     config = load_config()
     profile_name, profile, MAX_SPL, sens_dbmw = get_active_profile(config)
     refresh_cfg = get_refresh_settings(config)
@@ -570,7 +797,6 @@ def main():
                       f'(tentative {retries}/{MAX_RETRIES})')
                 tracker.save_json()
                 time.sleep(wait)
-                # Réinitialiser le filtre zi au prochain _run_capture
             else:
                 print(f'\nErreur fatale : {e}')
                 import traceback
