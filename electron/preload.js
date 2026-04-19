@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('hifi', {
   winMinimize:     ()                       => ipcRenderer.send('win-minimize'),
   winMaximize:     ()                       => ipcRenderer.send('win-maximize'),
   winClose:        ()                       => ipcRenderer.send('win-close'),
+  openExternal:    (url)                    => ipcRenderer.send('open-external', url),
   deleteDayData:   (dateKey)                => ipcRenderer.invoke('delete-day-data', dateKey),
   deleteMonthData: (year, month)            => ipcRenderer.invoke('delete-month-data', year, month),
   deleteOldData:   (keepDays)               => ipcRenderer.invoke('delete-old-data', keepDays),
