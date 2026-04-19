@@ -465,8 +465,9 @@ function doPoll() {
 // ══════════════════════════════════════════════════════════
 
 // ── Live (thread renderer dédié au live) ──────────────────
-// Renvoie le state déjà en mémoire - zéro I/O
-ipcMain.handle('get-state', () => lastState || readState())
+// On force la lecture réelle du fichier sur le disque pour avoir la donnée fraîche (10ms) de Python
+// au lieu d'utiliser le cache "lastState" qui est bloqué à la vitesse de l'UI (ex: 1s)
+ipcMain.handle('get-state', () => readState())
 
 // ── Config ────────────────────────────────────────────────
 ipcMain.handle('get-config', () => readConfig())
@@ -610,6 +611,7 @@ ipcMain.on('win-maximize', () => {
   mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize()
 })
 ipcMain.on('win-close', () => mainWindow && mainWindow.hide())
+ipcMain.on('open-external', (_, url) => shell.openExternal(url))
 
 // ══════════════════════════════════════════════════════════
 // AUTO LAUNCH WINDOWS
