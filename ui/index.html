@@ -335,6 +335,16 @@ body.dragging #main{pointer-events:none;}
       <div class="nav-item active" data-page="today"><span class="nav-icon">◈</span><span data-i18n="nav_today">Aujourd'hui</span></div>
       <div class="nav-item" data-page="calendar"><span class="nav-icon">☷</span><span data-i18n="nav_history">Historique</span></div>
       <div class="nav-item" data-page="system"><span class="nav-icon">⎔</span><span data-i18n="nav_system">Système & Avancé</span></div>
+      <div class="nav-item" data-page="spectrum">
+        <span class="nav-icon" style="display:flex; align-items:center; justify-content:center;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+        </span>
+        <span data-i18n="nav_spectrum">Spectre Audio</span>
+      </div>
       <div class="nav-item" data-page="settings"><span class="nav-icon">⚙</span><span data-i18n="nav_settings">Paramètres</span></div>
       <div class="sidebar-spacer"></div>
       <div id="live-panel">
@@ -428,6 +438,52 @@ body.dragging #main{pointer-events:none;}
               <div class="chart-hint" data-i18n="cal_hint">🖱 Molette = zoom · Clic+glisser = déplacer · Double-clic = réinitialiser</div>
               <div class="chart-legend" id="legend-day"></div>
             </div>
+          </div>
+        </div>
+      </div>
+      <div class="page" id="page-spectrum">
+        <div style="font-size:19px;font-weight:700;margin-bottom:14px;">Analyseur de Spectre</div>
+        <div class="card" style="display:flex; flex-direction:column; flex:1; min-height:400px;">
+          <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span>Énergie par bande de fréquence (Temps réel)</span>
+              <button id="btn-spec-info" style="background:var(--bg3); border:1px solid var(--border); color:var(--muted); border-radius:50%; width:18px; height:18px; font-size:10px; font-weight:bold; cursor:help; display:flex; align-items:center; justify-content:center;" title="Ce graphique affiche le PIC MAXIMUM en dB(A) pour chaque bande de fréquence. La chute des barres est lissée par gravité pour le confort visuel, mais la détection des pics (attaque) est instantanée (0 ms).">i</button>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+              
+              <div style="display:flex; align-items:center; gap:5px;">
+                <label style="font-size:11px; color:var(--muted);">Résolution :</label>
+                <select id="spec-bands" style="background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:3px 8px; border-radius:4px; font-size:11px; cursor:pointer;">
+                  <option value="20">20 Bandes</option>
+                  <option value="40">40 Bandes</option>
+                  <option value="80" selected>80 Bandes (Foobar)</option>
+                  <option value="160">160 Bandes (Ultra)</option>
+                  <option value="custom">Personnalisé...</option>
+                </select>
+                
+                <div id="spec-bands-custom-wrap" style="display:none; align-items:center; margin-left:4px;">
+                  <input type="number" id="spec-bands-custom" placeholder="ex: 120" style="width:65px; background:var(--bg2); border:1px solid var(--accent); color:var(--text); padding:3px 6px; border-radius:4px; font-size:11px;">
+                </div>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:5px;">
+                <label style="font-size:11px; color:var(--muted);">Filtre :</label>
+                <select id="spec-weight" style="background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:3px 8px; border-radius:4px; font-size:11px; cursor:pointer;">
+                  <option value="A">dB(A) - Santé</option>
+                  <option value="Z" selected>dB(Z) - Brut</option>
+                </select>
+              </div>
+              
+            </div>
+          </div>
+          
+          <div class="chart-wrap" style="flex:1; height:100%; position:relative; margin-top:10px;">
+            <div class="chart-loading" id="loading-spectrum">
+              <div class="spinner"></div>
+              <div class="loading-label">Démarrage du moteur FFT...</div>
+            </div>
+            <canvas id="chart-spectrum-gl" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:1;"></canvas>
+            <canvas id="chart-spectrum" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:2; pointer-events:none;"></canvas>
           </div>
         </div>
       </div>
@@ -552,7 +608,10 @@ body.dragging #main{pointer-events:none;}
           <div class="card">
             <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
               <span>Simulateur SPL</span>
-              <button class="btn btn-secondary" id="btn-sim-load-active" style="font-size:10px; padding:2px 6px;">Charger profil actif</button>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span id="sim-eq-badge" style="font-size:9px; padding:2px 6px; border-radius:4px; display:none;"></span>
+                <button class="btn btn-secondary" id="btn-sim-load-active" style="font-size:10px; padding:2px 6px;">Charger profil actif</button>
+              </div>
             </div>
             <div class="form-grid" style="margin-bottom:10px;">
               <div class="form-row">
@@ -569,7 +628,7 @@ body.dragging #main{pointer-events:none;}
               <div class="form-row"><label>Impédance (Ω)</label><input id="sim-imp" type="number" placeholder="32"></div>
               <div class="form-row"><label>DAC Vout (Vrms)</label><input id="sim-vout" type="number" step="0.1" placeholder="1.2"></div>
               <div class="form-row"><label>Niveau (dBFS)</label><input id="sim-dbfs" type="number" step="0.1" placeholder="-10"></div>
-              <div class="form-row"><label>Volume Windows (%)</label><input id="sim-vol" type="number" step="1" min="1" max="100" value="100"></div>
+              <div class="form-row"><label>Volume Windows (%)</label><input id="sim-vol" type="number" step="1" min="1" max="100" placeholder="ex: 80"></div>
               <div class="form-row">
                 <label>Fréquence (Hz) - Optionnel</label>
                 <input id="sim-freq" type="number" step="1" placeholder="ex: 1000 (Ton pur)">
@@ -590,6 +649,10 @@ body.dragging #main{pointer-events:none;}
                 <div style="font-size:11px; color:var(--safe); font-weight:600;">Temps max (OMS Jour)</div>
                 <div id="sim-time-oms" style="font-size:22px; font-weight:bold; color:var(--text);">--</div>
               </div>
+              <div>
+                <div style="font-size:11px; color:#a855f7; font-weight:600;">Temps max (OMS Semaine)</div>
+                <div id="sim-time-oms-week" style="font-size:22px; font-weight:bold; color:var(--text);">--</div>
+              </div>
               <div style="font-size:11px; color:var(--muted); margin-top:auto; padding-top:12px; border-top:1px solid var(--border);">
                 Durée avant 100% de dose pour <span id="sim-ref-db" style="color:var(--text); font-weight:bold;">-- dB(A)</span>.
               </div>
@@ -598,10 +661,15 @@ body.dragging #main{pointer-events:none;}
 
           <div class="card" style="grid-column: 1 / -1;">
             <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
-              <span>Gestionnaire AutoEq & Comparaison</span>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span>Gestionnaire AutoEq & Comparaison</span>
+                  <button id="btn-autoeq-info" style="background:var(--bg3); border:1px solid var(--border); color:var(--muted); border-radius:50%; width:18px; height:18px; font-size:10px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Comment trouver mon fichier CSV ?">i</button>
+                </div>
+              </div>
               <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:11px; color:var(--warn); font-weight:normal; text-transform:none; letter-spacing:normal;" title="Calcule le son Brut et l'EQ en même temps">
                 <input type="checkbox" id="toggle-compare" style="cursor:pointer; width:14px; height:14px; accent-color:var(--warn);">
-                Mode Comparaison (CPU+)
+                Mode Comparaison
               </label>
             </div>
           
@@ -623,7 +691,7 @@ body.dragging #main{pointer-events:none;}
                 <thead>
                   <tr style="text-align: left; color: var(--muted); border-bottom: 1px solid var(--border);">
                     <th style="padding: 10px 5px;">Profil Matériel</th>
-                    <th style="padding: 10px 5px;">Fichier AutoEq (.csv)</th>
+                    <th style="padding: 10px 5px;">Fichier AutoEq (.txt)</th>
                     <th style="padding: 10px 5px; text-align: right;">Actions</th>
                   </tr>
                 </thead>
@@ -631,7 +699,7 @@ body.dragging #main{pointer-events:none;}
                   </tbody>
               </table>
             </div>
-            <input type="file" id="file-autoeq-hidden" accept=".csv" style="display: none;">
+            <input type="file" id="file-autoeq-hidden" accept=".txt" style="display: none;">
             
             <div style="margin-top:15px; padding-top:15px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
               <div style="font-size:11px; color:var(--muted);">Les fichiers CSV sont stockés localement.</div>
@@ -675,7 +743,25 @@ body.dragging #main{pointer-events:none;}
     </div>
   </div>
 </div>
-
+<div id="modal-info-overlay" style="position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:10000; display:none; align-items:center; justify-content:center;">
+  <div style="background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:24px 28px; min-width:320px; max-width:500px; box-shadow:0 16px 40px rgba(0,0,0,.6); animation:zoomIn .18s ease;">
+    <div style="font-size:16px; font-weight:700; margin-bottom:12px; color:var(--text);">Comment utiliser AutoEq ?</div>
+    <div style="font-size:13px; color:var(--muted); margin-bottom:20px; line-height:1.6;">
+      <ol style="padding-left:18px; margin-bottom:12px;">
+        <li>Allez sur le site <a href="#" id="link-autoeq-web" style="color:var(--accent); text-decoration:none;">autoeq.app</a></li>
+        <li>Cherchez le modèle exact de votre casque.</li>
+        <li>Sélectionnez la cible Flat.</li>
+        <li>Dans la section <strong>Equalizer</strong>, choisissez l'application <strong>EqualizerAPO GraphicEq</strong>.</li>
+        <li>Téléchargez le fichier <strong>.txt</strong> généré.</li>
+        <li>De retour ici, cliquez sur <strong>Associer</strong> et sélectionnez ce fichier.</li>
+      </ol>
+      <p style="font-size:11px; color:var(--warn); border-left:2px solid var(--warn); padding-left:8px;">Assurez-vous que le fichier est bien au format .txt pour GraphicEq.</p>
+    </div>
+    <div style="display:flex; justify-content:flex-end;">
+      <button class="btn btn-primary" id="btn-close-info">Compris</button>
+    </div>
+  </div>
+</div>
 <div id="ctx-menu">
   <div class="ctx-item disabled" id="ctx-title" style="font-weight:600;font-size:12px;color:var(--muted);cursor:default;"></div>
   <div class="ctx-separator"></div>
