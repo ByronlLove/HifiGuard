@@ -151,45 +151,48 @@ function navigateTo(page) {
   if (page === 'settings') renderSettings()
   if (page === 'system') renderSystem()
 
-  // --- AUTO-KILL & DÉMARRAGES LOURDS ---
+  // --- AUTO-KILL & DÉMARRAGES LOURDS (SANS FREEZE !) ---
   if (window.hifi && config) {
-    let needsRestart = false;
+    let configChanged = false;
 
-    // 1. Quitter Système : Couper l'AutoEQ (CPU+)
     if (page !== 'system' && config.compare_eq) {
       config.compare_eq = false;
       const toggle = document.getElementById('toggle-compare');
       if (toggle) toggle.checked = false;
       const box = document.getElementById('compare-box');
       if (box) box.style.display = 'none';
-      needsRestart = true;
+      configChanged = true;
     }
 
-    // 2. Quitter Spectre : Couper la FFT (CPU+)
     if (page !== 'spectrum' && config.spectrum_enabled) {
       config.spectrum_enabled = false;
-      needsRestart = true;
+      configChanged = true;
     }
 
-    // 3. Entrer sur Spectre : Allumer la FFT (CPU+)
     if (page === 'spectrum') {
-      const bands = parseInt(document.getElementById('spec-bands').value) || 40;
-      
-      // LA CORRECTION EST ICI : On force toujours la création des étiquettes !
+      const bands = parseInt(document.getElementById('spec-bands').value) || 80;
       updateSpectrumLabels(bands);
       
-      // On allume le moteur seulement s'il était éteint
       if (!config.spectrum_enabled) {
         config.spectrum_enabled = true;
         config.spectrum_bands = bands;
-        document.getElementById('loading-spectrum').classList.remove('hidden');
-        needsRestart = true;
+        const loader = document.getElementById('loading-spectrum');
+        loader.classList.remove('hidden');
+        // Sécurité : si les données n'arrivent pas dans 4s, on cache quand même
+        clearTimeout(window._spectrumLoaderTimeout);
+        window._spectrumLoaderTimeout = setTimeout(() => {
+          loader.classList.add('hidden');
+        }, 4000);
+        configChanged = true;
       }
     }
 
-    // Si on a allumé ou éteint un truc lourd, on relance le moteur en fond
-    if (needsRestart) {
-      window.hifi.saveConfig(config).then(() => window.hifi.restartDaemon());
+    // On SAUVEGARDE le fichier, MAIS ON NE REDÉMARRE PLUS LE DAEMON !
+    // Le loader va tourner, et Python allumera le flux tout seul dans les secondes qui suivent.
+    if (configChanged) {
+      window.hifi.saveConfig(config).then(() => {
+        window.hifi.triggerPythonReload();
+      });      
     }
   }
 }
@@ -328,26 +331,22 @@ document.querySelectorAll('.metric-btn').forEach(el => {
 // ══════════════════════════════════════════════════════════
 let livePollInterval = null
 
-// Boucle dédiée au spectre — vitesse maximale, indépendante de l'UI
-function startDedicatedSpectrumLoop() {
-  async function renderSpectrum() {
+// --- RÉCEPTION DIRECTE DU SPECTRE DEPUIS LA RAM (Zéro Lag Disque) ---
+if (window.hifi.onSpectrumFast) {
+  window.hifi.onSpectrumFast((jsonStr) => {
     if (currentPage === 'spectrum' && config && config.spectrum_enabled) {
       try {
-        const state = await window.hifi.getState();
-        if (state && state.spectrum && state.spectrum.length > 0) {
-          window.latestSpectrum = state.spectrum;
-          const loader = document.getElementById('loading-spectrum');
-          if (loader && !loader.classList.contains('hidden')) loader.classList.add('hidden');
-          drawNativeSpectrum(state.spectrum);
+        const data = JSON.parse(jsonStr);
+        drawNativeSpectrum(data);
+        
+        const loader = document.getElementById('loading-spectrum');
+        if (loader && !loader.classList.contains('hidden')) {
+          loader.classList.add('hidden');
         }
       } catch (err) {}
     }
-    requestAnimationFrame(renderSpectrum);
-  }
-  requestAnimationFrame(renderSpectrum);
+  });
 }
-
-startDedicatedSpectrumLoop();
 
 function startLivePoll() {
   // Le push IPC state-update arrive maintenant même fenêtre cachée.
@@ -1119,7 +1118,6 @@ function renderProfileList() {
       config.active_profile = name; 
       await window.hifi.saveConfig(config); 
       renderProfileList(); 
-      window.hifi.restartDaemon(); 
       showToast(L.profile_activated || "Profil activé"); 
     })
     const db = item.querySelector('[data-delete]')
@@ -1435,7 +1433,6 @@ function initChartSpectrum() {
     // Cela laisse le temps au menu déroulant de se fermer proprement 
     // avant que le CPU ne soit réquisitionné par le Daemon.
     setTimeout(() => {
-      window.hifi.restartDaemon();
     }, 100);
   };
 
@@ -1529,26 +1526,29 @@ function drawNativeSpectrum(data) {
   if (!spectrumCanvasCtx || !spectrumCanvasEl || !glCanvas || !data || data.length === 0) return;
 
   const rect = spectrumCanvasEl.getBoundingClientRect();
-  if (rect.width === 0) return; 
+  // PROTECTION ANTI-CRASH : Si l'onglet est caché ou cassé, on annule le dessin
+  if (rect.width <= 0 || rect.height <= 0) return; 
   
   const dpr = window.devicePixelRatio || 1;
   const targetWidth = Math.floor(rect.width * dpr);
   const targetHeight = Math.floor(rect.height * dpr);
   
-  // Synchronisation des dimensions
   if (spectrumCanvasEl.width !== targetWidth) spectrumCanvasEl.width = targetWidth;
   if (spectrumCanvasEl.height !== targetHeight) spectrumCanvasEl.height = targetHeight;
   if (glCanvas.width !== targetWidth) glCanvas.width = targetWidth;
   if (glCanvas.height !== targetHeight) glCanvas.height = targetHeight;
   
-  // Initialisation sécurisée
-  if (!gl) {
-    if (!initWebGL(glCanvas)) return; // Si ça échoue, on abandonne l'image pour ne pas crasher
-  }
+  if (!gl) { if (!initWebGL(glCanvas)) return; }
 
   const ctx = spectrumCanvasCtx;
   const width = spectrumCanvasEl.width;
   const height = spectrumCanvasEl.height;
+
+  // --- CRÉATION DES MARGES PROTECTRICES ---
+  const marginLeft = 35 * dpr;   // 35px à gauche pour ranger les décibels
+  const marginBottom = 20 * dpr; // 20px en bas pour ranger les fréquences
+  const drawWidth = width - marginLeft;
+  const drawHeight = height - marginBottom;
 
   // 1. DESSIN DU CALQUE 2D (Grille et Texte)
   ctx.clearRect(0, 0, width, height); 
@@ -1556,18 +1556,22 @@ function drawNativeSpectrum(data) {
   ctx.lineWidth = 1 * dpr;
   ctx.fillStyle = '#94a3b8';
   ctx.font = `${10 * dpr}px sans-serif`;
-  ctx.textAlign = 'left';
 
-  const unit = (config && config.spectrum_weight === 'Z') ? 'dB(Z)' : 'dB(A)';
-  const gridLevels = [20, 40, 60, 80, 100];
+  const gridLevels = [20, 40, 60, 80]; 
+  
+  ctx.textAlign = 'right'; 
   gridLevels.forEach(db => {
-    const yDb = height - (db / 120) * height;
-    ctx.beginPath(); ctx.moveTo(0, yDb); ctx.lineTo(width, yDb); ctx.stroke();
-    ctx.fillText(`${db} ${unit}`, 2 * dpr, yDb - (4 * dpr));
+    const yDb = drawHeight - (db / 100) * drawHeight; 
+    ctx.beginPath(); 
+    ctx.moveTo(marginLeft, yDb); 
+    ctx.lineTo(width, yDb); 
+    ctx.stroke();
+    ctx.fillText(`${db}`, marginLeft - (6 * dpr), yDb + (3 * dpr));
   });
-  ctx.fillText(`120 ${unit}`, 2 * dpr, 12 * dpr);
+  ctx.fillText(`100`, marginLeft - (6 * dpr), 10 * dpr); 
+  
 
-  // 2. PRÉPARATION DU BLOC MÉMOIRE WEBGL
+  // 2. PRÉPARATION DES BARRES WEBGL DANS LA BOÎTE
   const numBands = data.length;
   if (previousBars.length !== numBands) previousBars = new Array(numBands).fill(0);
   
@@ -1579,61 +1583,51 @@ function drawNativeSpectrum(data) {
   let v = 0;
 
   for (let i = 0; i < numBands; i++) {
-    let targetDb = Math.max(0, Math.min(data[i], 120)); 
-    
-    if (targetDb > previousBars[i]) {
-      previousBars[i] += (targetDb - previousBars[i]) * attackLerp;
-    } else {
-      previousBars[i] -= decayRateDB;
-      if (previousBars[i] < targetDb) previousBars[i] = targetDb;
-    }
+    let targetDb = Math.max(0, Math.min(data[i], 100)); 
+    if (targetDb > previousBars[i]) { previousBars[i] += (targetDb - previousBars[i]) * attackLerp; } 
+    else { previousBars[i] -= decayRateDB; if (previousBars[i] < targetDb) previousBars[i] = targetDb; }
     if (previousBars[i] < 0) previousBars[i] = 0;
 
-    const barHeight = (previousBars[i] / 120) * height;
-    const startX = Math.floor((i / numBands) * width);
-    const endX = Math.floor(((i + 1) / numBands) * width);
+    // Hauteur par rapport à la zone de dessin (pas la zone totale)
+    const barHeight = (previousBars[i] / 100) * drawHeight;
+    // Décalage de marginLeft pour que la première barre ne touche pas le texte
+    const startX = marginLeft + Math.floor((i / numBands) * drawWidth);
+    const endX = marginLeft + Math.floor(((i + 1) / numBands) * drawWidth);
     const actualBarWidth = Math.max(1, (endX - startX) - padding);
 
     const x = startX;
-    const y = height - barHeight;
+    const y = drawHeight - barHeight; 
     const w = actualBarWidth;
     const h = barHeight;
 
     vertices[v++] = x;     vertices[v++] = y + h; 
     vertices[v++] = x + w; vertices[v++] = y + h; 
     vertices[v++] = x;     vertices[v++] = y;     
-    
     vertices[v++] = x;     vertices[v++] = y;     
     vertices[v++] = x + w; vertices[v++] = y + h; 
     vertices[v++] = x + w; vertices[v++] = y;     
   }
 
-  // 3. INJECTION WEBGL SÉCURISÉE
+  // 3. INJECTION WEBGL
   if (glProgram) {
     gl.viewport(0, 0, targetWidth, targetHeight);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
-
-    // On désactive les fonctions 3D qui pourraient gêner le rendu 2D
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
-
     gl.useProgram(glProgram);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
     gl.enableVertexAttribArray(posLoc);
     gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-
     gl.uniform2f(resLoc, targetWidth, targetHeight);
     gl.uniform4f(colLoc, 99/255, 102/255, 241/255, 0.9); 
-
     gl.drawArrays(gl.TRIANGLES, 0, numBands * 6);
   }
 
-  // 4. ÉTIQUETTES DES FRÉQUENCES
+  // 4. ÉTIQUETTES DES FRÉQUENCES (Bien rangées dans la marge du bas)
   const step = Math.max(1, Math.floor(numBands / 12)); 
   const fList = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 15000, 20000, 25000];
   
@@ -1645,14 +1639,16 @@ function drawNativeSpectrum(data) {
     const f = fList[Math.min(fIndex, fList.length - 1)];
     const text = f < 1000 ? f + 'Hz' : (f/1000).toFixed(0) + 'k';
     
-    const startX = Math.floor((drawIdx / numBands) * width);
-    const endX = Math.floor(((drawIdx + 1) / numBands) * width);
+    // Positionnées par rapport à la marge
+    const startX = marginLeft + Math.floor((drawIdx / numBands) * drawWidth);
+    const endX = marginLeft + Math.floor(((drawIdx + 1) / numBands) * drawWidth);
     let textX = startX + ((endX - startX) / 2);
 
-    if (drawIdx === 0) { ctx.textAlign = 'left'; textX = 2 * dpr; } 
+    if (drawIdx === 0) { ctx.textAlign = 'left'; textX = marginLeft; } 
     else if (isLast) { ctx.textAlign = 'right'; textX = width - (2 * dpr); } 
     else { ctx.textAlign = 'center'; }
     
+    // Le texte est dessiné sous drawHeight, dans le vide sécurisé !
     ctx.fillText(text, textX, height - (4 * dpr));
     if (isLast) break;
   }
@@ -1695,14 +1691,10 @@ async function renderSystem() {
 
     btnRefresh.onclick = refreshDevices;
 
-    deviceSelect.onchange = async () => {
-      config.audio_device = deviceSelect.value;
-      await window.hifi.saveConfig(config);
-      showToast("Périphérique modifié. Relance du daemon...");
-      window.hifi.restartDaemon(); 
-    };
-
-    refreshDevices();
+    // On ne lance la recherche matérielle lourde qu'une seule fois
+    if (deviceSelect.options.length <= 1) {
+      refreshDevices();
+    }
   }
 
   // ══════════════════════════════════════════════════════════
@@ -1926,7 +1918,6 @@ async function renderSystem() {
       refreshAutoEqManager();
 
       if (targetProfileForUpload === config.active_profile) {
-          window.hifi.restartDaemon();
       }
       
       fileInput.value = ''; 
@@ -1949,8 +1940,6 @@ async function renderSystem() {
       const msgOn = L.compare_mode_on || "Mode Comparaison Activé";
       const msgOff = L.compare_mode_off || "Mode Comparaison Désactivé";
       showToast(toggleCompare.checked ? msgOn : msgOff);
-      
-      window.hifi.restartDaemon(); 
     };
   }
 
@@ -2000,6 +1989,8 @@ async function init() {
   if (appLoader) { appLoader.classList.add('done'); setTimeout(() => appLoader.remove(), 350) }
 
   startLivePoll()
+
+  renderSystem()
 
   document.addEventListener('keydown', e => {
     if (e.code === 'Space') {
