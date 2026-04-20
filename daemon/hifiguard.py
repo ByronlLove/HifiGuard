@@ -45,7 +45,20 @@ import time
 from datetime import datetime, timedelta
 import scipy.signal as signal
 from pycaw.pycaw import AudioUtilities
+import threading
+SHARED_STATE = {'force_reload': False}
 
+def stdin_listener():
+    """Écoute en permanence les ordres instantanés de Node.js"""
+    import sys
+    while True:
+        try:
+            line = sys.stdin.readline()
+            if not line: break
+            if 'RELOAD' in line:
+                SHARED_STATE['force_reload'] = True
+        except Exception:
+            break
 # ══════════════════════════════════════════════════════════
 # CHEMINS
 # ══════════════════════════════════════════════════════════
@@ -528,16 +541,41 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
     # Variables pour stocker le filtre EQ en mémoire
     fft_window_size = 8192
     fft_buffer = np.zeros(fft_window_size)
+
+    # Surveillance des changements de périphérique
+    _consecutive_silence = 0
+    _silence_device_check = int(5.0 / seconds_per_block)  # Vérifie toutes les 5s de silence
+    try:
+        _last_known_default = sc.default_speaker().name
+    except Exception:
+        _last_known_default = ""
     
     current_autoeq_file = None
     taps = None
     zi_eq = None
 
+    # --- MOTEUR À DOUBLE VITESSE ---
+    # 1. Vitesse Matérielle (Verrouillée à 10ms pour le WebGL)
+    BLOCK_MS = 10
+    BLOCK_SIZE = int(DAC_FS * BLOCK_MS / 1000)
+    seconds_per_block = BLOCK_SIZE / DAC_FS
+
+    # 2. Vitesse de l'Interface (Dictée par les réglages de l'app, ex: 250ms ou 1000ms)
+    ui_report_ms = max(refresh_cfg['python_ms'], 10) 
+    blocks_per_report = int(ui_report_ms / BLOCK_MS)
+    if blocks_per_report < 1: 
+        blocks_per_report = 1
+
+    block_counter = 0
+    config_check_counter = 0
+
     import warnings
+    threading.Thread(target=stdin_listener, daemon=True).start()
     with mic.recorder(samplerate=DAC_FS, blocksize=BLOCK_SIZE) as recorder:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             while True:
+                config_check_counter += 1
 
                 # ── MODE ATTENTE (Si aucun profil n'est configuré) ─────────
                 if not profile_name:
@@ -551,21 +589,32 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
                     except Exception: pass
                     continue
 
-                # ── VÉRIFICATION DE LA CONFIG (Toutes les ~5 secondes) ─────
-                if tracker._frame_count % max(1, int(5000/python_ms)) == 0:
+                # ── VÉRIFICATION DE LA CONFIG (Instantanée ou toutes les 5s) ─────
+                if SHARED_STATE['force_reload'] or config_check_counter >= 500:
+                    SHARED_STATE['force_reload'] = False
+                    config_check_counter = 0
                     try:
                         new_cfg = load_config()
                         new_profile_name = new_cfg.get('active_profile')
+                        new_cfg = load_config()
+                        new_profile_name = new_cfg.get('active_profile')
+                        
+                        # 1. Si le matériel audio change, on est obligé de redémarrer le flux
                         if new_cfg.get('refresh_mode') != config.get('refresh_mode') or \
                            new_profile_name != profile_name or \
                            new_cfg.get('compare_eq', False) != config.get('compare_eq', False):
                             return 'config_changed'
+                            
+                        # 2. LA MAGIE DU HOT-RELOAD :
+                        # On met à jour la mémoire de Python en direct. 
+                        # Si l'UI a activé le Spectre, Python va l'allumer sans s'arrêter !
+                        config = new_cfg  
+                        
                         if new_profile_name:
                             new_profile_data = new_cfg.get('profiles', {}).get(new_profile_name)
                             if new_profile_data != profile:
                                 profile = new_profile_data
                                 MAX_SPL, sens_dbmw = compute_max_spl(profile)
-                                print(f'\n[Live] Paramètres mis à jour : {MAX_SPL:.1f} dB (Sensi: {sens_dbmw:.1f})')
                     except Exception:
                         pass
 
@@ -603,12 +652,41 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
 
                 # 1. Gestion du silence
                 if rms_raw < SILENCE_THRESHOLD or is_muted:
+                    _consecutive_silence += 1
+
+                    # Toutes les 5s de silence, on vérifie si Windows a changé de périph
+                    if _consecutive_silence >= _silence_device_check:
+                        _consecutive_silence = 0
+                        try:
+                            current_default = sc.default_speaker().name
+                            if current_default != _last_known_default:
+                                print(f'\n[Audio] Périphérique changé détecté : {current_default} — reconnexion...')
+                                return 'config_changed'
+                        except Exception:
+                            pass
+
                     if time.time() - tracker._csv_buf_ts >= 1.0:
                         tracker._flush_csv(profile_name)
-                    stats    = tracker.today_stats()
-                    week_who = tracker.weekly_who_dose()
-                    write_state(0.0, 0.0, vol_db, stats, week_who, profile_name, refresh_cfg)
+                    
+                    # --- CORRECTION 1 : DESSINER LA GRILLE MÊME DANS LE SILENCE ---
+                    if config.get('spectrum_enabled', False):
+                        empty_bands = int(config.get('spectrum_bands', 80))
+                        sys.stdout.write('\nSPEC|' + json.dumps([0.0] * empty_bands) + '\n')
+                        sys.stdout.flush()
+                    # -------------------------------------------------------------
+
+                    # On respecte le rythme de l'UI pour écrire l'état (sans bloquer)
+                    block_counter += 1
+                    if block_counter >= blocks_per_report:
+                        stats    = tracker.today_stats()
+                        week_who = tracker.weekly_who_dose()
+                        write_state(0.0, 0.0, vol_db, stats, week_who, profile_name, refresh_cfg)
+                        block_counter = 0
+                        
                     continue
+
+                # Réinitialise le compteur dès qu'il y a du son
+                _consecutive_silence = 0
 
                 # 2. Calcul dB(Z) Brut Physique
                 db_z = max(0.0, min(MAX_SPL + 20*np.log10(rms_raw + 1e-12) + vol_db, CEILING_DB))
@@ -703,24 +781,40 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
 
                     current_spectrum = band_dbs
 
-                # 7. Enregistrement des données et interface
+
+                # ── ACTION 1 : ENVOI IMMÉDIAT DU SPECTRE DANS LA RAM (TOUTES LES 10 MS) ──
+                if current_spectrum:
+                    sys.stdout.write('\nSPEC|' + json.dumps(current_spectrum) + '\n')
+                    sys.stdout.flush()
+
+
+                # ── ACTION 2 : ENREGISTREMENT CONTINU DE LA DOSE (TOUTES LES 10 MS) ──
                 tracker.record(db_z, db_a, vol_db, profile_name, seconds_per_block, save_every)
-                stats    = tracker.today_stats()
-                week_who = tracker.weekly_who_dose()
 
-                write_state(db_a, db_z, vol_db, stats, week_who, profile_name, refresh_cfg, db_a_raw, current_spectrum)
 
-                # Affichage console (Daemon)
-                info = (
-                    f'\r{risk_label(db_a)}{bar(db_a)} '
-                    f'Z:{db_z:5.1f} A:{db_a:5.1f} dB(A) | '
-                    f'N:{stats["dose_niosh_pct"]:5.1f}% | '
-                    f'O/j:{stats["dose_who_day_pct"]:5.1f}% | '
-                    f'O/7j:{week_who:5.1f}% | '
-                    f'Max:{stats["max_db_a"]:.1f}'
-                )
-                sys.stdout.write('\033[K' + info)
-                sys.stdout.flush()
+                # ── ACTION 3 : LE RAPPORT UI SÉCURISÉ (SELON LES RÉGLAGES) ──
+                block_counter += 1
+                if block_counter >= blocks_per_report:
+                    stats    = tracker.today_stats()
+                    week_who = tracker.weekly_who_dose()
+
+                    # On met à jour state.json pour l'UI, SANS lui injecter le spectre (qui passerait par le disque dur)
+                    write_state(db_a, db_z, vol_db, stats, week_who, profile_name, refresh_cfg, db_a_raw, None)
+
+                    # Affichage console (Daemon)
+                    info = (
+                        f'\r\033[K{risk_label(db_a)}{bar(db_a)} '
+                        f'Z:{db_z:5.1f} A:{db_a:5.1f} dB(A) | '
+                        f'N:{stats["dose_niosh_pct"]:5.1f}% | '
+                        f'O/j:{stats["dose_who_day_pct"]:5.1f}% | '
+                        f'O/7j:{week_who:5.1f}% | '
+                        f'Max:{stats["max_db_a"]:.1f}'
+                    )
+                    sys.stdout.write(info)
+                    sys.stdout.flush()
+
+                    # On remet le compteur à zéro pour attendre le prochain cycle UI
+                    block_counter = 0
 def main():
     if '--list-devices' in sys.argv:
         try:
