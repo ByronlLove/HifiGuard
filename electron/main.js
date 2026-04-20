@@ -94,11 +94,25 @@ function startDaemon() {
   daemonProcess = spawn(...spawnArgs)
   restartAttempts = 0
   daemonProcess.stdout.on('data', d => {
-    const msg = d.toString();
-    process.stdout.write('[D] ' + msg);
-    if (mainWindow) {
-      // On envoie le log directement à l'interface
-      mainWindow.webContents.send('daemon-log', msg);
+    const text = d.toString();
+    const lines = text.split(/[\r\n]+/); // On sépare chaque ligne proprement
+    
+    for (let line of lines) {
+      line = line.trim();
+      if (!line) continue;
+      
+      if (line.startsWith('SPEC|')) {
+        // C'EST LE SPECTRE ! On l'envoie direct à WebGL sans l'imprimer
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('spectrum-fast', line.substring(5));
+        }
+      } else {
+        // C'est un log normal, on l'affiche et on l'envoie à la console de l'interface
+        process.stdout.write('[D] ' + line + '\n');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('daemon-log', line + '\n');
+        }
+      }
     }
   });
   daemonProcess.stderr.on('data', d => process.stderr.write('[D ERR] ' + d.toString()))
@@ -612,6 +626,11 @@ ipcMain.on('win-maximize', () => {
 })
 ipcMain.on('win-close', () => mainWindow && mainWindow.hide())
 ipcMain.on('open-external', (_, url) => shell.openExternal(url))
+ipcMain.on('trigger-python-reload', () => {
+  if (daemonProcess && daemonProcess.stdin) {
+    daemonProcess.stdin.write('RELOAD\n');
+  }
+});
 
 // ══════════════════════════════════════════════════════════
 // AUTO LAUNCH WINDOWS
