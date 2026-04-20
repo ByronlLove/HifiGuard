@@ -149,6 +149,19 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .res-btn:hover{border-color:var(--muted);color:var(--text);}
 .res-btn.active{background:rgba(99,102,241,.15);border-color:var(--accent);color:var(--accent);}
 
+/* PLEIN ÉCRAN SPECTRE OPTIMISÉ WEBGL */
+.chart-wrap.fullscreen-mode {
+  position: fixed !important;
+  top: var(--titlebar) !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: calc(100vh - var(--titlebar)) !important;
+  z-index: 9999 !important;
+  background: var(--bg) !important;
+  margin: 0 !important;
+  padding: 20px !important;
+}
+
 /* CALENDAR */
 #cal-nav-row{display:flex;align-items:center;gap:10px;}
 .cal-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 13px;border-radius:6px;cursor:pointer;font-size:13px;}
@@ -482,8 +495,8 @@ body.dragging #main{pointer-events:none;}
               <div class="spinner"></div>
               <div class="loading-label">Démarrage du moteur FFT...</div>
             </div>
-            <canvas id="chart-spectrum-gl" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:1;"></canvas>
-            <canvas id="chart-spectrum" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:2; pointer-events:none;"></canvas>
+            <canvas id="chart-spectrum-gl" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:2; pointer-events:none;"></canvas>
+            <canvas id="chart-spectrum" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:1;"></canvas>
           </div>
         </div>
       </div>
