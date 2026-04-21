@@ -333,7 +333,7 @@ body.dragging #main{pointer-events:none;}
     <div id="hamburger"><span></span><span></span><span></span></div>
     <div id="titlebar-logo">〣 HifiGuard</div>
     <div id="titlebar-center">
-      <div style="font-size:11px;color:var(--muted);line-height:1.2;" id="titlebar-app-title" data-i18n="app_title">Dosimètre auditif</div>
+      <div style="font-size:14px; font-weight:bold; color:var(--muted);" id="titlebar-app-title">-- dB(A) — Chargement...</div>
       <div style="font-size:11px;color:var(--muted);line-height:1.2;" id="titlebar-doses"></div>
     </div>
     <div class="win-btn" id="btn-minimize" data-i18n-title="win_min" title="Réduire">─</div>
@@ -462,10 +462,13 @@ body.dragging #main{pointer-events:none;}
               <span>Énergie par bande de fréquence (Temps réel)</span>
               <button id="btn-spec-info" style="background:var(--bg3); border:1px solid var(--border); color:var(--muted); border-radius:50%; width:18px; height:18px; font-size:10px; font-weight:bold; cursor:help; display:flex; align-items:center; justify-content:center;" title="Ce graphique affiche le PIC MAXIMUM en dB(A) pour chaque bande de fréquence. La chute des barres est lissée par gravité pour le confort visuel, mais la détection des pics (attaque) est instantanée (0 ms).">i</button>
             </div>
-            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
               
-              <div style="display:flex; align-items:center; gap:5px;">
-                <label style="font-size:11px; color:var(--muted);">Résolution :</label>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <label style="font-size:11px; color:var(--muted); display:flex; align-items:center; gap:6px; text-transform:uppercase; font-weight:600;">
+                  Résolution :
+                  <div id="mini-loader-spectrum" style="display:none; width:12px; height:12px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite;"></div>
+                </label>
                 <select id="spec-bands" style="background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:3px 8px; border-radius:4px; font-size:11px; cursor:pointer;">
                   <option value="20">20 Bandes</option>
                   <option value="40">40 Bandes</option>
@@ -474,19 +477,25 @@ body.dragging #main{pointer-events:none;}
                   <option value="custom">Personnalisé...</option>
                 </select>
                 
-                <div id="spec-bands-custom-wrap" style="display:none; align-items:center; margin-left:4px;">
+                <div id="spec-bands-custom-wrap" style="display:none; align-items:center;">
                   <input type="number" id="spec-bands-custom" placeholder="ex: 120" style="width:65px; background:var(--bg2); border:1px solid var(--accent); color:var(--text); padding:3px 6px; border-radius:4px; font-size:11px;">
                 </div>
               </div>
 
-              <div style="display:flex; align-items:center; gap:5px;">
-                <label style="font-size:11px; color:var(--muted);">Filtre :</label>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <label style="font-size:11px; color:var(--muted); text-transform:uppercase; font-weight:600;">Filtre :</label>
                 <select id="spec-weight" style="background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:3px 8px; border-radius:4px; font-size:11px; cursor:pointer;">
                   <option value="A">dB(A) - Santé</option>
                   <option value="Z" selected>dB(Z) - Brut</option>
                 </select>
               </div>
-              
+
+              <div style="display:flex; align-items:center;">
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:11px; color:var(--muted); text-transform:uppercase; font-weight:600;" title="Compense la perte mathématique de l'algorithme FFT pour que les barres atteignent le niveau du dosimètre global.">
+                  <input type="checkbox" id="spec-compensate" checked style="cursor:pointer; accent-color:var(--accent); width:14px; height:14px;">
+                  Compenser le niveau visuel
+                </label>
+              </div>              
             </div>
           </div>
           
