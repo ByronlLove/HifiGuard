@@ -749,9 +749,11 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
                         log_bounds = 10 ** np.interp(x_new, x_old, np.log10(FB_FREQS))
 
                     window_h = np.hanning(len(fft_buffer))
+                    window_norm = np.sum(window_h)  # Compensation amplitude fenêtre de Hann
                     fft_res = np.abs(np.fft.rfft(fft_buffer * window_h))
                     freqs = np.fft.rfftfreq(len(fft_buffer), 1.0 / DAC_FS)
-                    fft_db = 20 * np.log10(fft_res / len(fft_buffer) + 1e-12) + MAX_SPL + vol_db
+                    # Le facteur 2.0 compense le spectre unilatéral (rfft = moitié du spectre)
+                    fft_db = 20 * np.log10(2.0 * fft_res / window_norm + 1e-12) + MAX_SPL + vol_db
 
                     weight_mode = config.get('spectrum_weight', 'Z')
                     if weight_mode == 'A':
