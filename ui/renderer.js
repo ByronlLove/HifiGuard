@@ -332,16 +332,34 @@ document.querySelectorAll('.metric-btn').forEach(el => {
 let livePollInterval = null
 
 // --- RÉCEPTION DIRECTE DU SPECTRE DEPUIS LA RAM (Zéro Lag Disque) ---
+let latestSpectrumData = null;
+let isSpectrumDrawing = false;
+
 if (window.hifi.onSpectrumFast) {
   window.hifi.onSpectrumFast((jsonStr) => {
     if (currentPage === 'spectrum' && config && config.spectrum_enabled) {
       try {
-        const data = JSON.parse(jsonStr);
-        drawNativeSpectrum(data);
+        // 1. On stocke juste la dernière frame en RAM (si le PC rame, on écrase l'ancienne = Drop Frame)
+        latestSpectrumData = JSON.parse(jsonStr);
         
         const loader = document.getElementById('loading-spectrum');
         if (loader && !loader.classList.contains('hidden')) {
           loader.classList.add('hidden');
+        }
+
+        // 2. Bouclier Anti-Freeze : On ne dessine QUE quand le moniteur rafraîchit l'écran
+        if (!isSpectrumDrawing) {
+          isSpectrumDrawing = true;
+          requestAnimationFrame(() => {
+            try {
+              if (latestSpectrumData) {
+                drawNativeSpectrum(latestSpectrumData);
+              }
+            } catch (err) {
+            } finally {
+              isSpectrumDrawing = false;
+            }
+          });
         }
       } catch (err) {}
     }
@@ -391,14 +409,24 @@ function handleLiveState(state) {
 // TITLEBAR
 // ══════════════════════════════════════════════════════════
 function updateTitlebar(state) {
-  const el = document.getElementById('titlebar-doses')
-  if (!el) return
+  const elTitle = document.getElementById('titlebar-app-title');
+  const elDoses = document.getElementById('titlebar-doses');
+  if (!elTitle || !elDoses) return;
+
+  // On cache le deuxième texte pour forcer l'affichage sur une seule ligne
+  elDoses.style.display = 'none';
+
   if (state && state.db_a > 0) {
-    const nioshLabel = L.dose_niosh || 'NIOSH'
-    const omsjLabel  = L.dose_oms_day || 'OMS/j'
-    el.textContent = `${nioshLabel} ${state.dose_niosh.toFixed(1)}%  |  ${omsjLabel} ${state.dose_who_j.toFixed(1)}%`
+    const profileName = state.profile || "Aucun profil";
+    
+    // On récupère la couleur dynamique (Vert, Jaune, Orange, Rouge) selon le volume
+    const col = dbColor(state.db_a); 
+    
+    // Tout sur une seule ligne (Côte à côte)
+    elTitle.innerHTML = `<span style="font-size:14px; font-weight:bold; color:${col};">${state.db_a.toFixed(1)} dB(A)</span> <span style="font-size:13px; color:var(--muted); margin-left:6px; font-weight:normal;">— ${profileName}</span>`;
   } else {
-    el.textContent = ''
+    // Mode attente
+    elTitle.innerHTML = `<span style="font-size:14px; font-weight:bold; color:var(--muted);">-- dB(A)</span> <span style="font-size:13px; color:var(--muted); margin-left:6px; font-weight:normal;">— En attente...</span>`;
   }
 }
 
@@ -1412,12 +1440,14 @@ function initChartSpectrum() {
     weightSelect.value = config.spectrum_weight || 'Z';
   }
 
-  // Fonction de sauvegarde optimisée (Anti-Lag)
+  // --- CE QUI CHANGE EST JUSTE EN DESSOUS ---
+  // Fonction de sauvegarde optimisée (Anti-Lag + Feedback Visuel)
   const triggerUpdate = async () => {
     if (!config) return;
     
-    // On affiche le loader INSTANTANÉMENT pour bloquer les clics parasites
-    document.getElementById('loading-spectrum').classList.remove('hidden');
+    // 1. On allume le petit spinner à côté du bouton (au lieu du gros écran noir)
+    const miniLoader = document.getElementById('mini-loader-spectrum');
+    if (miniLoader) miniLoader.style.display = 'flex';
 
     let finalBands = parseInt(bandsSelect.value);
     if (bandsSelect.value === 'custom') {
@@ -1429,12 +1459,12 @@ function initChartSpectrum() {
 
     await window.hifi.saveConfig(config);
     
-    // ON AJOUTE UN DÉLAI DE 100ms : 
-    // Cela laisse le temps au menu déroulant de se fermer proprement 
-    // avant que le CPU ne soit réquisitionné par le Daemon.
+    // 2. On laisse le spinner tourner un petit peu (ex: 600ms) pour que l'œil le voie, puis on l'éteint
     setTimeout(() => {
-    }, 100);
+      if (miniLoader) miniLoader.style.display = 'none';
+    }, 600);
   };
+  // --- FIN DU CHANGEMENT ---
 
   bandsSelect.onchange = () => {
     if (bandsSelect.value === 'custom') {
@@ -1448,6 +1478,17 @@ function initChartSpectrum() {
 
   bandsCustom.onchange = triggerUpdate;
   weightSelect.onchange = triggerUpdate;
+  const canvas = document.getElementById('chart-spectrum');
+
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    // On sauvegarde la position brute de la souris en temps réel
+    canvas._mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    canvas._mouseX = -1;
+  });
 }
 
 // --- MOTEUR WEBGL HAUTE PERFORMANCE ---
@@ -1526,7 +1567,6 @@ function drawNativeSpectrum(data) {
   if (!spectrumCanvasCtx || !spectrumCanvasEl || !glCanvas || !data || data.length === 0) return;
 
   const rect = spectrumCanvasEl.getBoundingClientRect();
-  // PROTECTION ANTI-CRASH : Si l'onglet est caché ou cassé, on annule le dessin
   if (rect.width <= 0 || rect.height <= 0) return; 
   
   const dpr = window.devicePixelRatio || 1;
@@ -1544,13 +1584,13 @@ function drawNativeSpectrum(data) {
   const width = spectrumCanvasEl.width;
   const height = spectrumCanvasEl.height;
 
-  // --- CRÉATION DES MARGES PROTECTRICES ---
-  const marginLeft = 35 * dpr;   // 35px à gauche pour ranger les décibels
-  const marginBottom = 20 * dpr; // 20px en bas pour ranger les fréquences
+  const marginLeft = 35 * dpr;   
+  const marginBottom = 20 * dpr; 
   const drawWidth = width - marginLeft;
   const drawHeight = height - marginBottom;
+  const numBands = data.length;
 
-  // 1. DESSIN DU CALQUE 2D (Grille et Texte)
+  // 1. DESSIN DE LA GRILLE
   ctx.clearRect(0, 0, width, height); 
   ctx.strokeStyle = 'rgba(46, 51, 80, 0.6)';
   ctx.lineWidth = 1 * dpr;
@@ -1558,7 +1598,6 @@ function drawNativeSpectrum(data) {
   ctx.font = `${10 * dpr}px sans-serif`;
 
   const gridLevels = [20, 40, 60, 80]; 
-  
   ctx.textAlign = 'right'; 
   gridLevels.forEach(db => {
     const yDb = drawHeight - (db / 100) * drawHeight; 
@@ -1569,28 +1608,60 @@ function drawNativeSpectrum(data) {
     ctx.fillText(`${db}`, marginLeft - (6 * dpr), yDb + (3 * dpr));
   });
   ctx.fillText(`100`, marginLeft - (6 * dpr), 10 * dpr); 
-  
 
-  // 2. PRÉPARATION DES BARRES WEBGL DANS LA BOÎTE
-  const numBands = data.length;
+  // 2. CALCUL DES LIMITES DE FRÉQUENCE (Le moteur Python)
+  const FB_FREQS_JS = [
+    50, 54, 59, 63, 74, 80, 87, 94, 102, 110, 119, 129, 139, 150, 163, 176, 191, 206, 223, 241,
+    261, 282, 306, 331, 358, 387, 419, 453, 490, 530, 574, 620, 671, 726, 786, 850, 920, 1000,
+    1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000, 2200, 2400, 2600, 2800, 3000,
+    3200, 3500, 3800, 4100, 4400, 4800, 5200, 5600, 6100, 6600, 7100, 7700, 8300, 9000, 10000,
+    11000, 12000, 13000, 14000, 16000, 17000, 18000, 20000, 21000, 23000, 25000
+  ];
+  let bounds = [];
+  if (numBands <= 80) {
+    const step = Math.max(1, Math.floor(FB_FREQS_JS.length / Math.max(1, numBands)));
+    for (let i = 0; i < FB_FREQS_JS.length; i += step) bounds.push(FB_FREQS_JS[i]);
+    if (bounds.length < numBands + 1) bounds.push(FB_FREQS_JS[FB_FREQS_JS.length - 1]);
+  } else {
+    for (let i = 0; i <= numBands; i++) {
+      const exactIdx = (i / numBands) * (FB_FREQS_JS.length - 1);
+      const idx1 = Math.floor(exactIdx);
+      const idx2 = Math.ceil(exactIdx);
+      if (idx1 === idx2) bounds.push(FB_FREQS_JS[idx1]);
+      else {
+        const f1 = Math.log10(FB_FREQS_JS[idx1]);
+        const f2 = Math.log10(FB_FREQS_JS[idx2]);
+        bounds.push(Math.pow(10, f1 + (exactIdx - idx1) * (f2 - f1)));
+      }
+    }
+  }
+
+  // 3. PRÉPARATION DES BARRES (Toutes de la même largeur visuelle !)
   if (previousBars.length !== numBands) previousBars = new Array(numBands).fill(0);
-  
   const attackLerp = 0.5; 
   const decayRateDB = 2.0; 
   const padding = 1 * dpr;
-
   const vertices = new Float32Array(numBands * 12);
   let v = 0;
 
+  // On lit l'état de la nouvelle case à cocher
+  const compensateUI = document.getElementById('spec-compensate');
+  const doCompensate = compensateUI ? compensateUI.checked : false;
+
   for (let i = 0; i < numBands; i++) {
-    let targetDb = Math.max(0, Math.min(data[i], 100)); 
-    if (targetDb > previousBars[i]) { previousBars[i] += (targetDb - previousBars[i]) * attackLerp; } 
+    // Si la case est cochée, on ajoute les 13 dB de compensation visuelle. Sinon, on garde la valeur brute.
+    const rawVal = data[i] > 0 ? data[i] : 0;
+    const finalVal = (doCompensate && rawVal > 0) ? rawVal + 13 : rawVal;
+
+    let targetDb = Math.max(0, Math.min(finalVal, 100)); 
+
+    if (targetDb > previousBars[i]) { previousBars[i] += (targetDb - previousBars[i]) * attackLerp; }
     else { previousBars[i] -= decayRateDB; if (previousBars[i] < targetDb) previousBars[i] = targetDb; }
     if (previousBars[i] < 0) previousBars[i] = 0;
 
-    // Hauteur par rapport à la zone de dessin (pas la zone totale)
     const barHeight = (previousBars[i] / 100) * drawHeight;
-    // Décalage de marginLeft pour que la première barre ne touche pas le texte
+
+    // Répartition de la largeur d'écran en parts ÉGALES
     const startX = marginLeft + Math.floor((i / numBands) * drawWidth);
     const endX = marginLeft + Math.floor(((i + 1) / numBands) * drawWidth);
     const actualBarWidth = Math.max(1, (endX - startX) - padding);
@@ -1608,7 +1679,7 @@ function drawNativeSpectrum(data) {
     vertices[v++] = x + w; vertices[v++] = y;     
   }
 
-  // 3. INJECTION WEBGL
+  // 4. INJECTION WEBGL
   if (glProgram) {
     gl.viewport(0, 0, targetWidth, targetHeight);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
@@ -1627,30 +1698,98 @@ function drawNativeSpectrum(data) {
     gl.drawArrays(gl.TRIANGLES, 0, numBands * 6);
   }
 
-  // 4. ÉTIQUETTES DES FRÉQUENCES (Bien rangées dans la marge du bas)
-  const step = Math.max(1, Math.floor(numBands / 12)); 
-  const fList = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 15000, 20000, 25000];
-  
-  for (let i = 0; i < numBands; i += step) {
-    const isLast = (i + step >= numBands);
-    const drawIdx = isLast ? numBands - 1 : i;
+  // 5. ÉTIQUETTES (Placées au bon endroit sous la bonne barre)
+  const labelFreqs = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 25000];
+  ctx.fillStyle = '#64748b';
+  ctx.font = `${9 * dpr}px sans-serif`;
 
-    const fIndex = Math.floor((drawIdx / numBands) * fList.length);
-    const f = fList[Math.min(fIndex, fList.length - 1)];
-    const text = f < 1000 ? f + 'Hz' : (f/1000).toFixed(0) + 'k';
+  labelFreqs.forEach((f, idx) => {
+    let fIdx = 0;
+    for (let i = 0; i < bounds.length; i++) { if (bounds[i] >= f) { fIdx = i; break; } }
     
-    // Positionnées par rapport à la marge
-    const startX = marginLeft + Math.floor((drawIdx / numBands) * drawWidth);
-    const endX = marginLeft + Math.floor(((drawIdx + 1) / numBands) * drawWidth);
-    let textX = startX + ((endX - startX) / 2);
+    const xPos = marginLeft + (fIdx / numBands) * drawWidth;
+    const text = f < 1000 ? f + 'Hz' : (f / 1000).toFixed(0) + 'k';
 
-    if (drawIdx === 0) { ctx.textAlign = 'left'; textX = marginLeft; } 
-    else if (isLast) { ctx.textAlign = 'right'; textX = width - (2 * dpr); } 
-    else { ctx.textAlign = 'center'; }
-    
-    // Le texte est dessiné sous drawHeight, dans le vide sécurisé !
-    ctx.fillText(text, textX, height - (4 * dpr));
-    if (isLast) break;
+    if (idx === 0) ctx.textAlign = 'left';
+    else if (idx === labelFreqs.length - 1) ctx.textAlign = 'right';
+    else ctx.textAlign = 'center';
+
+    ctx.fillText(text, xPos, height - (4 * dpr));
+
+    ctx.strokeStyle = 'rgba(46, 51, 80, 0.3)';
+    ctx.lineWidth = 0.5 * dpr;
+    ctx.setLineDash([3 * dpr, 3 * dpr]);
+    ctx.beginPath();
+    ctx.moveTo(xPos, 0);
+    ctx.lineTo(xPos, height - 14 * dpr);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // 6. TOOLTIP EXACTEMENT COMME TU AS DEMANDÉ (Colonne illuminée + 2 Lignes)
+  const mouseX = spectrumCanvasEl._mouseX;
+  if (mouseX && mouseX >= marginLeft && mouseX <= width) {
+    const hoverIdx = Math.floor(((mouseX - marginLeft) / drawWidth) * numBands);
+
+    if (hoverIdx >= 0 && hoverIdx < numBands) {
+      const dbVal = previousBars[hoverIdx] || 0;
+      const unit = (config && config.spectrum_weight === 'A') ? 'dB(A)' : 'dB(Z)';
+      
+      const f1 = Math.round(bounds[hoverIdx] || 0);
+      const f2 = Math.round(bounds[hoverIdx+1] || 0);
+
+      const startX = marginLeft + Math.floor((hoverIdx / numBands) * drawWidth);
+      const endX = marginLeft + Math.floor(((hoverIdx + 1) / numBands) * drawWidth);
+      const barW = Math.max(1, (endX - startX) - padding);
+
+      // A) Surlignage de la bande jusqu'à 100dB (Bleu transparent)
+      ctx.fillStyle = 'rgba(99, 102, 241, 0.15)'; 
+      ctx.fillRect(startX, 0, barW, drawHeight);
+
+      // B) Le petit "toit" lumineux sur la barre actuelle
+      const barHeight = (dbVal / 100) * drawHeight;
+      const yTop = drawHeight - barHeight;
+      ctx.fillStyle = 'rgba(99, 102, 241, 1)';
+      ctx.fillRect(startX, yTop, barW, 2 * dpr);
+
+      // C) Préparation des deux lignes de texte
+      const textLine1 = `${dbVal.toFixed(1)} ${unit}`;
+      const textLine2 = `${f1} - ${f2} Hz`;
+
+      ctx.font = `bold ${10 * dpr}px sans-serif`;
+      const tw1 = ctx.measureText(textLine1).width;
+      ctx.font = `${10 * dpr}px sans-serif`;
+      const tw2 = ctx.measureText(textLine2).width;
+      const tw = Math.max(tw1, tw2) + 16 * dpr;
+      const th = 34 * dpr;
+
+      // Position de la bulle (à côté de la barre, mais FIXÉE EN HAUT)
+      let tx = startX + barW + 8 * dpr;
+      if (tx + tw > width) tx = startX - tw - 8 * dpr;
+      
+      // On force la bulle à rester tout en haut avec une petite marge
+      let ty = 10 * dpr;
+
+      // Fond de la bulle
+      ctx.fillStyle = 'rgba(26, 29, 39, 0.96)';
+      ctx.beginPath();
+      ctx.roundRect(tx, ty, tw, th, 4 * dpr);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(46, 51, 80, 0.8)';
+      ctx.lineWidth = 1 * dpr;
+      ctx.stroke();
+
+      // Texte Ligne 1 (dB)
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#6366f1'; 
+      ctx.font = `bold ${11 * dpr}px sans-serif`;
+      ctx.fillText(textLine1, tx + 8 * dpr, ty + 14 * dpr);
+
+      // Texte Ligne 2 (Fréquence)
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = `${10 * dpr}px sans-serif`;
+      ctx.fillText(textLine2, tx + 8 * dpr, ty + 27 * dpr);
+    }
   }
 }
 
