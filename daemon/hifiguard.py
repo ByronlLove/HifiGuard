@@ -539,7 +539,9 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
     profile = current_profiles.get(profile_name, {})
 
     # Variables pour stocker le filtre EQ en mémoire
-    fft_window_size = 8192
+    # On adapte la taille de la fenêtre à la carte son pour GARANTIR une précision de ~5 Hz
+    # À 48 kHz -> fenêtre de 8192. À 384 kHz -> fenêtre de 65536.
+    fft_window_size = 2 ** int(np.ceil(np.log2(DAC_FS * 0.17)))
     fft_buffer = np.zeros(fft_window_size)
 
     # Surveillance des changements de périphérique
