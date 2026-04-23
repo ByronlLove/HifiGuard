@@ -71,12 +71,17 @@ function applyTranslations() {
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
     if (L[key]) {
-      if (el.tagName === 'INPUT') el.placeholder = L[key];
-      else el.innerHTML = L[key];
+      if (el.tagName === 'INPUT') {
+        el.placeholder = L[key];
+      } else if (el.tagName === 'OPTION') {
+        el.textContent = L[key];
+      } else {
+        el.innerHTML = L[key];
+      }
     }
   });
 
-  // Traduit les bulles au survol (attribut title)
+  // Traduit aussi les bulles au survol (title)
   document.querySelectorAll('[data-i18n-title]').forEach(el => {
     const key = el.getAttribute('data-i18n-title');
     if (L[key]) el.title = L[key];
@@ -512,16 +517,6 @@ function checkFollowMode(chart) {
   if (!xScale)  return
   const total   = chart.data.labels.length - 1
   followMode    = (total - xScale.max) <= 3
-
-  if (!followMode && hiresMode) {
-    hiresMode = false
-    chart.data.labels           = [...sessionData.labels]
-    chart.data.datasets[0].data = [...sessionData.dba]
-    chart.data.datasets[1].data = [...sessionData.niosh]
-    chart.data.datasets[2].data = [...sessionData.omsj]
-    chart.resetZoom()
-    chartTodayDirty = true
-  }
 }
 
 const TOOLTIP_OPTIONS = {
@@ -1330,12 +1325,12 @@ function toggleConsolePause() {
   
   if (isConsolePaused) {
     if (statusEl) {
-      statusEl.textContent = '⏸ En pause (Espace pour reprendre)';
+      statusEl.textContent = L.sys_console_paused || '⏸ En pause (Espace pour reprendre)';
       statusEl.style.color = 'var(--warn)';
     }
   } else {
     if (statusEl) {
-      statusEl.textContent = 'En ligne';
+      statusEl.textContent = L.sys_console_online || 'En ligne';
       statusEl.style.color = 'var(--safe)';
     }
     
@@ -1418,34 +1413,36 @@ let spectrumCanvasCtx = null;
 let spectrumCanvasEl = null;
 
 function initChartSpectrum() {
+  // 1. Récupération de la zone de dessin (Canevas)
   spectrumCanvasEl = document.getElementById('chart-spectrum');
   spectrumCanvasCtx = spectrumCanvasEl.getContext('2d');
 
+  // 2. Récupération des menus de l'interface
   const bandsSelect = document.getElementById('spec-bands');
   const bandsCustom = document.getElementById('spec-bands-custom');
   const customWrap  = document.getElementById('spec-bands-custom-wrap');
   const weightSelect = document.getElementById('spec-weight');
 
+  // 3. Restauration des paramètres sauvegardés par l'utilisateur
   if (config) {
-    const b = config.spectrum_bands || 80;
-    // Si la valeur n'est pas dans la liste 20,40,80,160, c'est du personnalisé
-    if ([20, 40, 80, 160].includes(b)) {
-      bandsSelect.value = b;
-      customWrap.style.display = 'none';
+    const savedBands = config.spectrum_bands || 80;
+    const standardValues = [20, 40, 80, 160];
+
+    if (standardValues.includes(savedBands)) {
+      bandsSelect.value = savedBands;         
+      customWrap.style.display = 'none';      
     } else {
-      bandsSelect.value = 'custom';
-      customWrap.style.display = 'flex';
-      bandsCustom.value = b;
+      bandsSelect.value = 'custom';           
+      customWrap.style.display = 'flex';      
+      bandsCustom.value = savedBands;         
     }
     weightSelect.value = config.spectrum_weight || 'Z';
   }
 
-  // --- CE QUI CHANGE EST JUSTE EN DESSOUS ---
-  // Fonction de sauvegarde optimisée (Anti-Lag + Feedback Visuel)
+  // 4. Fonction de sauvegarde optimisée (Anti-Lag + Feedback Visuel)
   const triggerUpdate = async () => {
     if (!config) return;
     
-    // 1. On allume le petit spinner à côté du bouton (au lieu du gros écran noir)
     const miniLoader = document.getElementById('mini-loader-spectrum');
     if (miniLoader) miniLoader.style.display = 'flex';
 
@@ -1459,13 +1456,12 @@ function initChartSpectrum() {
 
     await window.hifi.saveConfig(config);
     
-    // 2. On laisse le spinner tourner un petit peu (ex: 600ms) pour que l'œil le voie, puis on l'éteint
     setTimeout(() => {
       if (miniLoader) miniLoader.style.display = 'none';
     }, 600);
   };
-  // --- FIN DU CHANGEMENT ---
 
+  // 5. Écouteurs d'événements pour les menus
   bandsSelect.onchange = () => {
     if (bandsSelect.value === 'custom') {
       customWrap.style.display = 'flex';
@@ -1478,17 +1474,36 @@ function initChartSpectrum() {
 
   bandsCustom.onchange = triggerUpdate;
   weightSelect.onchange = triggerUpdate;
+  
+  // 6. Gestion de la position de la souris pour le Tooltip
   const canvas = document.getElementById('chart-spectrum');
 
   canvas.addEventListener('mousemove', (e) => {
     const rect = canvas.getBoundingClientRect();
-    // On sauvegarde la position brute de la souris en temps réel
     canvas._mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
   });
 
   canvas.addEventListener('mouseleave', () => {
     canvas._mouseX = -1;
   });
+
+  // 7. GESTION DE LA FENÊTRE INFO (MODALE)
+  const btnSpecInfo = document.getElementById('btn-spec-info');
+  const modalSpecInfo = document.getElementById('modal-spec-info-overlay');
+  const btnCloseSpecInfo = document.getElementById('btn-close-spec-info');
+
+  if (btnSpecInfo && modalSpecInfo && btnCloseSpecInfo) {
+    // Ouvrir la fenêtre au clic sur le "i"
+    btnSpecInfo.onclick = () => modalSpecInfo.style.display = 'flex';
+    
+    // Fermer via le bouton "Compris"
+    btnCloseSpecInfo.onclick = () => modalSpecInfo.style.display = 'none';
+    
+    // Fermer en cliquant dans la zone noire autour de la fenêtre
+    modalSpecInfo.onclick = (e) => {
+      if (e.target === modalSpecInfo) modalSpecInfo.style.display = 'none';
+    };
+  }
 }
 
 // --- MOTEUR WEBGL HAUTE PERFORMANCE ---
@@ -1918,19 +1933,11 @@ async function renderSystem() {
         displayMsg = `Musique (Estimé) : <span style="color:var(--safe)">~ ${resultA.toFixed(1)} dB(A)</span> <br> <small style="color:var(--muted)">Filtre estimé : -5.0 dB</small>`;
       }
       
-      // Avertissement visuel si un fichier EQ est attaché au profil
-      const badge = document.getElementById('sim-eq-badge');
-      let eqWarning = '';
-      if (badge && badge.dataset.haseq === 'true') {
-        eqWarning = `<div style="font-size:10px; color:var(--warn); margin-top:6px; line-height:1.2;">⚠️ Note : L'atténuation (Preamp) du fichier AutoEq n'est pas déduite de cette simulation brute.</div>`;
-      }
-
       document.getElementById('sim-result').innerHTML = `
         MAX SPL : ${maxSpl.toFixed(1)} dB <br>
         Brut physique : <span style="color:var(--muted)">${resultZ.toFixed(1)} dB(Z)</span> <br>
         ${displayMsg}
-        ${eqWarning}
-      `;
+      `;  
 
       // --- CALCULS DES LIMITES ---
       // NIOSH: 480 min (8h) à 85 dB, +3 dB divise le temps par 2
