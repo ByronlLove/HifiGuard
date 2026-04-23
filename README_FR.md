@@ -162,7 +162,7 @@ Le calcul reposant sur l'architecture audio de Windows, certaines configurations
 
 - [Node.js](https://nodejs.org) 18+
 - [Python](https://www.python.org) 3.10+
-- Paquets pip : `soundcard numpy scipy pycaw comtypes`
+- Paquets pip : soundcard sounddevice numpy scipy pycaw comtypes
 
 ### Lancer en mode développement
 
@@ -190,7 +190,6 @@ git clone https://github.com/ByronlLove/HifiGuard.git
 # ou en ligne de commande :
 
 # 1. Créer et activer un environnement virtuel Python
-# 1. Create and activate a Python virtual environment
 python -m venv venv
 .\venv\Scripts\activate
 
@@ -198,7 +197,7 @@ python -m venv venv
 pip install pyinstaller soundcard sounddevice numpy scipy pycaw comtypes
 
 # 3. Compiler le daemon Python en .exe
-python -m PyInstaller --onefile --noconsole --name hifiguard-daemon --distpath daemon/dist daemon/hifiguard.py --clean
+python -m PyInstaller --onefile --noconsole --name hifiguard-daemon --distpath daemon daemon/hifiguard.py --clean
 
 # 4. Installer les dépendances Node et packager l'application Electron
 npm install
