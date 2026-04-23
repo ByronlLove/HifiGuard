@@ -26,30 +26,30 @@ if not exist "venv" (
 call .\venv\Scripts\activate
 :: -----------------------------------------
 
-echo [1/5] Installing Python dependencies...
+echo [1/4] Installing Python dependencies...
 pip install pyinstaller soundcard sounddevice numpy scipy pycaw comtypes --quiet
 if errorlevel 1 ( echo [ERROR] pip install failed. & pause & exit /b 1 )
 
-echo [2/5] Compiling Python daemon to .exe (PyInstaller)...
-python -m PyInstaller --onefile --noconsole --name hifiguard-daemon --distpath daemon/dist daemon/hifiguard.py --clean
+echo [2/4] Compiling Python daemon to .exe (PyInstaller)...
+python -m PyInstaller --onefile --noconsole --name hifiguard-daemon --distpath daemon daemon/hifiguard.py --clean
 if errorlevel 1 ( echo [ERROR] PyInstaller failed. & pause & exit /b 1 )
 
-echo [3/5] Auditing and fixing Node vulnerabilities...
-call npm audit fix --quiet
-if errorlevel 1 ( echo [WARNING] npm audit fix encountered issues, continuing build... )
+:: Nettoyage des dossiers temporaires de PyInstaller
+if exist "build" rd /s /q build
+if exist "hifiguard-daemon.spec" del /q hifiguard-daemon.spec
 
-echo [4/5] Installing Node dependencies...
+echo [3/4] Installing Node dependencies...
 call npm install --quiet
 if errorlevel 1 ( echo [ERROR] npm install failed. & pause & exit /b 1 )
 
-echo [5/5] Building Electron (installer + portable)...
+echo [4/4] Building Electron (installer + portable)...
 call npm run build
 if errorlevel 1 ( echo [ERROR] electron-builder failed. & pause & exit /b 1 )
 
 echo.
 echo ================================================
 echo   Build complete! Files in: dist/
-echo   - HifiGuard-Setup-1.0.0.exe  (installer)
-echo   - HifiGuard-1.0.0-portable.exe  (portable)
+echo   - HifiGuard-Setup-1.1.2.exe  (installer)
+echo   - HifiGuard-1.1.2-portable.exe  (portable)
 echo ================================================
 pause
