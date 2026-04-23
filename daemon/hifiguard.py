@@ -450,12 +450,19 @@ def write_state(db_a, db_z, vol_db, stats, week_who, profile_name, refresh_cfg, 
 # ══════════════════════════════════════════════════════════
 # AFFICHAGE CONSOLE
 # ══════════════════════════════════════════════════════════
-def risk_label(db_a):
-    if db_a < 75: return '~ SUR    '
-    if db_a < 80: return 'OK       '
-    if db_a < 83: return '! MODERE '
-    if db_a < 85: return '!! ELEVE '
-    return              '! DANGER '
+def get_risk_label(db_a, lang='fr'):
+    if lang == 'fr':
+        if db_a < 75: return '~ SUR    '
+        if db_a < 80: return 'OK       '
+        if db_a < 83: return '! MODERE '
+        if db_a < 85: return '!! ELEVE '
+        return               '! DANGER '
+    else:
+        if db_a < 75: return '~ SAFE   '
+        if db_a < 80: return 'OK       '
+        if db_a < 83: return '! MODERAT'
+        if db_a < 85: return '!! HIGH  '
+        return               '! DANGER '
 
 def bar(db_a, width=20):
     filled = min(int((db_a/120)*width), width)
@@ -480,6 +487,8 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
     """
     python_ms = refresh_cfg['python_ms']
 
+    lang = config.get('language', 'fr')
+
     # --- DÉTECTION DYNAMIQUE DES HZ DU DAC ---
     try:
         wasapi_id = next(i for i, api in enumerate(sd.query_hostapis()) if 'WASAPI' in api['name'])
@@ -489,11 +498,16 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
         
         # --- NOUVEAU : LECTURE DU BUFFER WINDOWS ---
         hw_latency_ms = device_info.get('default_low_output_latency', 0.0) * 1000
-        print(f"\n[Système] Buffer matériel Windows détecté : ~{hw_latency_ms:.1f} ms")
-        print(f"[Python] Demande de paquets audio bloquants : 10.0 ms\n")
+        if lang == 'fr':
+            print(f"\n[Systeme] Buffer materiel Windows : ~{hw_latency_ms:.1f} ms")
+            print(f"[Python] Paquets audio bloquants : 10.0 ms\n")
+        else:
+            print(f"\n[System] Windows hardware buffer : ~{hw_latency_ms:.1f} ms")
+            print(f"[Python] Blocking audio packets : 10.0 ms\n")
         
     except Exception as e:
-        print(f'[DAC] Détection échouée ({e}), fallback à 44100 Hz')
+        msg = "Detection echouee" if lang == 'fr' else "Detection failed"
+        print(f'[DAC] {msg} ({e}), fallback 44100 Hz')
         DAC_FS = 44100
     # ------------------------------------------
 
@@ -631,11 +645,14 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
                         taps = build_autoeq_filter(eq_path, DAC_FS)
                         if taps is not None:
                             zi_eq = signal.lfilter_zi(taps, [1.0])
-                            print(f'\n[AutoEq] Filtre FIR chargé avec succès : {current_autoeq_file}')
+                            msg = "Filtre FIR charge avec succes" if lang == 'fr' else "FIR filter loaded successfully"
+                            print(f'\n[AutoEq] {msg} : {current_autoeq_file}')
                         else:
-                            print(f'\n[AutoEq] Fichier invalide ou mal formaté : {current_autoeq_file}')
+                            msg = "Fichier invalide ou mal formate" if lang == 'fr' else "Invalid or badly formatted file"
+                            print(f'\n[AutoEq] {msg} : {current_autoeq_file}')
                     else:
-                        print(f'\n[AutoEq] Fichier introuvable : {current_autoeq_file}')
+                        msg = "Fichier introuvable" if lang == 'fr' else "File not found"
+                        print(f'\n[AutoEq] {msg} : {current_autoeq_file}')
                         taps = None
                 elif not has_eq and current_autoeq_file is not None:
                     current_autoeq_file = None
@@ -806,8 +823,9 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
                     write_state(db_a, db_z, vol_db, stats, week_who, profile_name, refresh_cfg, db_a_raw, None)
 
                     # Affichage console (Daemon)
+                    lang = config.get('language', 'fr')
                     info = (
-                        f'\r\033[K{risk_label(db_a)}{bar(db_a)} '
+                        f'\r\033[K{get_risk_label(db_a, lang)}{bar(db_a)} '
                         f'Z:{db_z:5.1f} A:{db_a:5.1f} dB(A) | '
                         f'N:{stats["dose_niosh_pct"]:5.1f}% | '
                         f'O/j:{stats["dose_who_day_pct"]:5.1f}% | '
@@ -834,13 +852,14 @@ def main():
     config = load_config()
     profile_name, profile, MAX_SPL, sens_dbmw = get_active_profile(config)
     refresh_cfg = get_refresh_settings(config)
+    lang = config.get('language', 'fr')
 
     print('=' * 42)
     print('  HifiGuard - Daemon (NIOSH/OMS)')
     print('=' * 42)
-    print(f'  Profil  : {profile_name}')
+    print(f'  {"Profil " if lang=="fr" else "Profile"} : {profile_name}')
     print(f'  MAX_SPL : {MAX_SPL:.1f} dB')
-    print(f'  Sensi   : {sens_dbmw:.1f} dB/mW (unit: {profile.get("sensitivity_unit","dB/mW")})')
+    print(f'  {"Sensi  " if lang=="fr" else "Sens   "} : {sens_dbmw:.1f} dB/mW (unit: {profile.get("sensitivity_unit","dB/mW")})')
     print(f'  Mode    : {config.get("refresh_mode","focus")} ({refresh_cfg["python_ms"]}ms)')
     print(f'  Data    : {DATA_DIR}')
     print('=' * 42)
@@ -870,18 +889,20 @@ def main():
         except KeyboardInterrupt:
             tracker.save_json()
             stats = tracker.today_stats()
+            lang = config.get('language', 'fr')
+            
             print('\n\n' + '='*34)
-            print('  RESUME DE SESSION')
+            print('  RESUME DE SESSION' if lang == 'fr' else '  SESSION SUMMARY')
             print('='*34)
-            print(f'  Profil    : {profile_name}')
+            print(f'  {"Profil" if lang == "fr" else "Profile"}    : {profile_name}')
             print(f'  NIOSH/j   : {stats["dose_niosh_pct"]:.2f}%')
             print(f'  OMS/jour  : {stats["dose_who_day_pct"]:.2f}%')
             print(f'  OMS/7j    : {tracker.weekly_who_dose():.2f}%')
-            print(f'  Pic max   : {stats["max_db_a"]} dB(A)')
+            print(f'  {"Pic max" if lang == "fr" else "Max peak"}   : {stats["max_db_a"]} dB(A)')
             print(f'  >80 dB    : {stats["minutes_above_80"]:.1f} min')
             print(f'  >85 dB    : {stats["minutes_above_85"]:.1f} min')
             print('='*34)
-            print('  Sauvegarde. A la prochaine !')
+            print('  Sauvegarde. A la prochaine !' if lang == 'fr' else '  Saving. See you next time!')
             return
 
         except Exception as e:
