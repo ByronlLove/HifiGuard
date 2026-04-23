@@ -1,6 +1,6 @@
 {
   "name": "hifiguard",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Personal hearing dosimeter for headphones and earphones.",
   "author": "ByronlLove",
   "license": "AGPL-3.0",
@@ -20,7 +20,7 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
-    "build:daemon": "pyinstaller --onefile --noconsole --name hifiguard-daemon --distpath daemon/dist daemon/hifiguard.py"
+    "build:daemon": "pyinstaller --onefile --noconsole --name hifiguard-daemon --distpath daemon daemon/hifiguard.py --clean"
   },
   "dependencies": {
     "chart.js": "^4.4.0"
@@ -44,7 +44,7 @@
     ],
     "extraResources": [
       {
-        "from": "daemon/dist/hifiguard-daemon.exe",
+        "from": "daemon/hifiguard-daemon.exe",
         "to": "daemon/hifiguard-daemon.exe"
       },
       {
