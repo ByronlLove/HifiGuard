@@ -12,6 +12,7 @@ Un fichier audio est une suite de nombres entre **-1** et **+1**, appelés **éc
 
 À 44 100 Hz, l'ordinateur prend **44 100 mesures par seconde**.
 
+
 ## 2. Le dBFS (niveau numérique)
 
 Le dBFS mesure l'amplitude du signal numérique **par rapport au maximum possible (1.0)**.
@@ -40,6 +41,7 @@ $$\text{dBFS} = 20 \times \log_{10}\left(\frac{\%}{100}\right)$$
 |50%      |-6 dBFS  |
 |10%      |-20 dBFS |
 
+
 ## 3. Du dBFS au dB SPL (Z) — le MAX_SPL
 
 Le **dB SPL** (Sound Pressure Level) est la pression acoustique réelle dans l'air. Pour passer du numérique à l'acoustique, il faut les specs du matériel.
@@ -59,6 +61,7 @@ $$\text{dB(Z) SPL} = \text{MAX\\_SPL} + \text{dBFS}$$
 
 - Casque Artti T10 : 96 dB/mW, 16,5 Ω - DAC : 1,2 Vrms - Peace UI Equalizer APO : -30 Pre-Amp.
 
+
 ## 4. Le filtre A — pondération de l'oreille
 
 L'oreille humaine n'entend pas toutes les fréquences de la même façon. Le filtre A imite cette sensibilité. Pour chaque fréquence $f$ (en Hz) :
@@ -69,12 +72,13 @@ $$G_A(f) = 20 \times \log_{10}(R_A(f)) + 2{,}00$$
 
 **Valeurs typiques :**
 
-|Fréquence|Type de son|$G_A(f)$|Effet|
-|---|---|---|---|
-|50 Hz|Basse profonde|-30,2 dB|Fortement atténué|
-|1 000 Hz|Voix humaine|≈ 0 dB|Référence, inchangé|
-|4 000 Hz|Sifflement|+1 dB|Légèrement amplifié|
-|10 000 Hz|Cymbales|-2,5 dB|Légèrement atténué|
+|Fréquence|Type de son   |$G_A(f)$|Effet               |
+|---------|--------------|--------|--------------------|
+|50 Hz    |Basse profonde|-30,2 dB|Fortement atténué   |
+|1 000 Hz |Voix humaine  |≈ 0 dB  |Référence, inchangé |
+|4 000 Hz |Sifflement    |+1 dB   |Légèrement amplifié |
+|10 000 Hz|Cymbales      |-2,5 dB |Légèrement atténué  |
+
 
 ## 5. Le dB(A) — formule complète
 
@@ -94,17 +98,18 @@ $$\text{dB(A)} = 115{,}4 + (-6) + 0{,}1 = 109{,}5 \text{ dB(A)}$$
 
 **Dangereux** — exposition prolongée déconseillée au-delà de quelques minutes.
 
+
 ## 6. Récapitulatif des formules
 
-|Calcul|Formule|
-|---|---|
-|Facteur de volume|10^(dBFS/20)|
-|dBFS depuis % Windows|20 × log10(% / 100)|
-|RMS du signal|sqrt( (1/n) × somme(xi²) )|
-|dBFS depuis RMS|20 × log10(RMS)|
-|MAX_SPL|S + 10 × log10(V² / R × 1000)|
-|dB(Z) SPL|MAX_SPL + dBFS|
-|Gain filtre A|20 × log10(RA(f)) + 2|
-|dB(A) SPL|dB(Z) SPL + GA(f)|
+|Calcul               |Formule                      |
+|---------------------|-----------------------------|
+|Facteur de volume    |10^(dBFS/20)                 |
+|dBFS depuis % Windows|20 × log10(% / 100)          |
+|RMS du signal        |sqrt( (1/n) × somme(xi²) )   |
+|dBFS depuis RMS      |20 × log10(RMS)              |
+|MAX_SPL              |S + 10 × log10(V² / R × 1000)|
+|dB(Z) SPL            |MAX_SPL + dBFS               |
+|Gain filtre A        |20 × log10(RA(f)) + 2        |
+|dB(A) SPL            |dB(Z) SPL + GA(f)            |
 
 **Seuils de danger (OMS / NIOSH) :** 80 dB(A) sur 40h/semaine / 85 dB(A) sur 8h/jour
