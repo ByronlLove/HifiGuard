@@ -1,19 +1,12 @@
- ### Calcul du niveau sonore dB
-
-
+### Calcul du niveau sonore dB
 **dBFS · dB(Z) · dB(A) · SPL**
-
 ## 1. Les échantillons audio
-
 Un fichier audio est une suite de nombres entre **-1** et **+1**, appelés **échantillons**. Chaque nombre représente la position de la membrane du haut-parleur à un instant précis.
 *   +1.0 = membrane poussée au maximum vers l'avant
 *   -1.0 = membrane tirée au maximum vers l'arrière
 *   0 = silence
 À 44 100 Hz, l'ordinateur prend **44 100 mesures par seconde**.
-
-
 ## 2. Le dBFS (niveau numérique)
-
 Le dBFS mesure l'amplitude du signal numérique **par rapport au maximum possible (1.0)**.
 **Depuis le RMS du signal :**
 $$
@@ -36,13 +29,10 @@ $$
 |100%     |0 dBFS   |
 |50%      |-6 dBFS  |
 |10%      |-20 dBFS |
-
-
 ## 3. Du dBFS au dB SPL (Z) — le MAX_SPL
-
 Le **dB SPL** (Sound Pressure Level) est la pression acoustique réelle dans l'air. Pour passer du numérique à l'acoustique, il faut les specs du matériel.
 $$
-Sensibilité_{\text{dB/mW}} + 10 \times \log_{10}\left(\frac{V_{\text{out}}^2}{R} \times 1000\right)
+\text{MAX\_SPL} = S_{\text{dBmW}} + 10 \times \log_{10}\left(\frac{V_{\text{out}}^2}{R} \times 1000\right)
 $$
 $$
 \text{dB(Z) SPL} = \text{MAX\_SPL} + \text{dBFS}
@@ -52,13 +42,9 @@ $$
 *   $V_{\text{out}}$ : tension de sortie du DAC en Vrms
 *   $R$ : impédance du casque en Ω
 *   $\times 1000$ : conversion watts → milliwatts
-*   
 **Exemple numérique :**
 - Casque Artti T10 : 96 dB/mW, 16,5 Ω - DAC : 1,2 Vrms - Peace UI Equalizer APO : -30 Pre-Amp.
-
-
 ## 4. Le filtre A — pondération de l'oreille
-
 L'oreille humaine n'entend pas toutes les fréquences de la même façon. Le filtre A imite cette sensibilité. Pour chaque fréquence $f$ (en Hz) :
 $$
 R_A(f) = \frac{12194^2 \cdot f^4}{\left(f^2 + 20{,}6^2\right) \cdot \sqrt{\left(f^2 + 107{,}7^2\right)\left(f^2 + 737{,}9^2\right)} \cdot \left(f^2 + 12194^2\right)}
@@ -73,10 +59,7 @@ $$
 |1 000 Hz|Voix humaine|≈ 0 dB|Référence, inchangé|
 |4 000 Hz|Sifflement|+1 dB|Légèrement amplifié|
 |10 000 Hz|Cymbales|-2,5 dB|Légèrement atténué|
-
-
 ## 5. Le dB(A) — formule complète
-
 $$
 \boxed{\text{dB(A)} = \underbrace{S + 10\log_{10}\left(\frac{V^2}{R}\times 1000\right)}_{\text{MAX\_SPL}} + \underbrace{20\log_{10}\left(\frac{\%}{100}\right)}_{\text{dBFS}} + \underbrace{20\log_{10}(R_A(f)) + 2}_{\text{Gain A}}}
 $$
@@ -90,11 +73,8 @@ $$
 	$$
 	\text{dB(A)} = 115{,}4 + (-6) + 0{,}1 = \textbf{109,5 dB(A)}
 	$$
-**Dangereux** —exposition prolongée déconseillée au-delà de quelques minutes.
-
-  
+**Dangereux** — exposition prolongée déconseillée au-delà de quelques minutes.
 ## 6. Récapitulatif des formules
-
 |Calcul|Formule|
 |---|---|
 |Facteur de volume|10^(dBFS/20)|
@@ -105,6 +85,4 @@ $$
 |dB(Z) SPL|MAX_SPL + dBFS|
 |Gain filtre A|20 × log10(RA(f)) + 2|
 |dB(A) SPL|dB(Z) SPL + GA(f)|
-
 * **Seuils de danger (OMS / NIOSH) :**   80 dB(A) sur 40h/semaine  / 85 dB(A) sur 8h/jour
-
