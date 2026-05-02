@@ -1,4 +1,4 @@
-### Calcul du niveau sonore dB
+# Calcul du niveau sonore dB
 
 **dBFS · dB(Z) · dB(A) · SPL**
 
