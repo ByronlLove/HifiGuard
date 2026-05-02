@@ -476,6 +476,7 @@ def bar(db_a, width=20):
 _WMF_RECOVERABLE = {
     'Error 0x88890004',   # AUDCLNT_E_DEVICE_INVALIDATED
     'Error 0x8889000a',   # AUDCLNT_E_RESOURCES_INVALIDATED
+    'Error 0x88890010',   # AUDCLNT_E_SERVICE_NOT_RUNNING
     'Error 0x100000001',  # Erreur de cleanup __exit__ après crash
 }
 MAX_RETRIES    = 10       # tentatives max avant abandon
