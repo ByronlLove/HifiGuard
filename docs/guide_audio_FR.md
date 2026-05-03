@@ -109,7 +109,7 @@ $$\text{dB(A)} = \text{MAX\\_SPL} + \text{dBFS\\_source} + \text{Pre-Amp} + 20\l
 
 Ou plus simplement :
 
-$$\text{dB(A)} = \text{dB(Z) SPL} + G_A(f)$$
+$$\text{dB(A)} = \text{MAX\\_SPL} + \text{dBFS} + \text{HW}(f) + \text{EQ}(f) + G_A(f)$$
 
 **En pratique**, un signal musical contient des centaines de fréquences simultanées. On calcule $G_A(f)$ pour chaque fréquence (via FFT), puis on somme les contributions.
 
