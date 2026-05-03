@@ -96,7 +96,7 @@ $$G_A(f) = 20 \times \log_{10}(R_A(f)) + 2{,}00$$
 
 ## 5. Le dB(A) — formule complète
 
-\text{dB(A)} = \text{MAX\\_SPL} + \text{dBFS\\_source} + \text{Pre-Amp} + 20\log_{10}\left(\frac{p}{100}\right) + \text{HW}(f) + \text{EQ}(f) + G_A(f)
+**\text{dB(A)} = \text{MAX\\_SPL} + \text{dBFS\\_source} + \text{Pre-Amp} + 20\log_{10}\left(\frac{p}{100}\right) + \text{HW}(f) + \text{EQ}(f) + G_A(f)**
 
 où $p$ = volume Windows en %
 
