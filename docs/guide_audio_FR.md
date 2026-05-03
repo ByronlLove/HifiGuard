@@ -27,6 +27,8 @@ $$\text{dBFS} = 20 \times \log_{10}(\text{RMS})$$
 
 $$\text{dBFS} = 20 \times \log_{10}\left(\frac{p}{100}\right)$$
 
+où $p$ = volume Windows en % (le caractère % ne marchais pas dans la fraction)
+
 > Note : cette formule suppose que le fichier audio est à 0 dBFS. Si ton fichier est à -10 dBFS : dBFS total = -10 + 20 × log10(% / 100)
 
 **Propriétés :**
@@ -61,7 +63,14 @@ $$\text{dB(Z) SPL} = \text{MAX\\_SPL} + \text{dBFS}$$
 
 **Exemple numérique :**
 
-- Casque Artti T10 : 96 dB/mW, 16,5 Ω - DAC : 1,2 Vrms - Peace UI Equalizer APO : -30 Pre-Amp.
+<details>
+<summary>Casque Artti T10 : 96 dB/mW, 16,5 Ω - DAC : 1,2 Vrms - Peace UI Equalizer APO : -30 Pre-Amp.</summary>
+
+$$\text{MAX\\_SPL} = 96 + 10 \times \log_{10}\left(\frac{1{,}2^2}{16{,}5} \times 1000\right) = 115{,}4 \text{ dB SPL}$$
+
+$$\text{dB(Z) SPL} = 115{,}4 + (-30) = \textbf{85{,}4} \text{ dB(Z) SPL}$$
+
+</details>
 
 
 ## 4. Le filtre A — pondération de l'oreille
@@ -84,7 +93,9 @@ $$G_A(f) = 20 \times \log_{10}(R_A(f)) + 2{,}00$$
 
 ## 5. Le dB(A) — formule complète
 
-$$\text{dB(A)} = \text{MAX\\_SPL} + 20\log_{10}\left(\frac{\%}{100}\right) + G_A(f)$$
+$$\text{dB(A)} = \text{MAX\\_SPL} + 20\log_{10}\left(\frac{p}{100}\right) + G_A(f)$$
+
+où $p$ = volume Windows en %
 
 Ou plus simplement :
 
