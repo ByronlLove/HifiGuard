@@ -97,7 +97,7 @@ $$G_A(f) = 20 \times \log_{10}(R_A(f)) + 2{,}00$$
 
 ## 5. Le dB(A) — formule complète
 
-$$\text{dB(A)} = \text{MAX\\_SPL} + \text{dBFS}_{sorti} + 20\log_{10}\left(\frac{p}{100}\right) + G_A(f)$$
+$$\text{dB(A)} = \text{MAX\\_SPL} + \text{dBFS}_{source} + \text{Pre-Amp} + 20\log_{10}\left(\frac{p}{100}\right) + G_A(f)$$
 
 où $p$ = volume Windows en %
 
@@ -111,22 +111,22 @@ $$\text{dB(A)} = \text{dB(Z) SPL} + G_A(f)$$
 
 - Avec le même casque, Artti T10, 50% Windows (-6 dBFS), fréquence 1 000 Hz :
 
-$$\text{dB(A)} = 115{,}4 + (-6) + 0{,}1 = 109{,}5 \text{ dB(A)}$$
+$$\text{dB(A)} = 115{,}4 + (-6) + 0{,}1 = 109{,}5 \text{ dB(A) }$$
 
 **Dangereux** — exposition prolongée déconseillée au-delà de quelques minutes.
 
 
 ## 6. Récapitulatif des formules
 
-|Calcul               |Formule                      |
-|---------------------|-----------------------------|
-|Facteur de volume    |10^(dBFS/20)                 |
-|dBFS depuis % Windows|20 × log10(% / 100)          |
-|RMS du signal        |sqrt( (1/n) × somme(xi²) )   |
-|dBFS depuis RMS      |20 × log10(RMS)              |
-|MAX_SPL              |S + 10 × log10(V² / R × 1000)|
-|dB(Z) SPL            |MAX_SPL + dBFS               |
-|Gain filtre A        |20 × log10(RA(f)) + 2        |
-|dB(A) SPL            |dB(Z) SPL + GA(f)            |
+|Calcul               |Formule                                    |
+|---------------------|-------------------------------------------|
+|Facteur de volume    |10^(dBFS/20)                               |
+|dBFS depuis % Windows|20 × log10(% / 100)                        |
+|RMS du signal        |sqrt( (1/n) × somme(xi²) )                 |
+|dBFS depuis RMS      |20 × log10(RMS)                            |
+|MAX_SPL              |S + 10 × log10(V² / R × 1000)              |
+|dB(Z) SPL            |MAX_SPL + dBFS_source + Pre-Amp + vol_dB   |
+|Gain filtre A        |20 × log10(RA(f)) + 2                      |
+|dB(A) SPL            |dB(Z) SPL + GA(f)                          |
 
 **Seuils de danger (OMS / NIOSH) :** 80 dB(A) sur 40h/semaine / 85 dB(A) sur 8h/jour
