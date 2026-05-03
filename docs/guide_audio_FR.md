@@ -73,7 +73,8 @@ $$\text{dBFS} = \text{dBFS\\_source} + \text{Pre-Amp} + \text{vol\\_dB} = -10 + 
 
 $$\text{dB(Z) SPL} = 115{,}4 + (-46) = 69{,}4 \text{ dB(Z) SPL}$$
 
-> Note : le dB(Z) SPL calculé suppose un casque neutre. En réalité, deux autres facteurs modifient le niveau à chaque fréquence : la courbe de réponse du matériel (Hardware Response) et l'EQ logiciel (Peace/APO), si vous en avez un. Les deux s'additionnent : dB(Z) SPL final = MAX_SPL + dBFS_source + Pre-Amp + vol_dB + HW(f) + EQ(f)
+> Note : le dB(Z) SPL calculé suppose un casque neutre. En réalité, deux autres facteurs modifient le niveau à chaque fréquence : la courbe de réponse du matériel (Hardware Response) et l'EQ logiciel (Peace/APO), si vous en avez un. Les deux s'additionnent :
+> dB(Z) SPL final = MAX_SPL + dBFS_source + Pre-Amp + vol_dB + HW(f) + EQ(f)
 
 
 ## 4. Le filtre A — pondération de l'oreille
