@@ -199,7 +199,7 @@ dBFS  | Niveaux disponibles (16 bits) | Bits utilisés
       |  4 096 niveaux (2¹²)          | bit 13
 -24   |                               |
       |  2 048 niveaux (2¹¹)          | bit 12
--30   | <-- ton son est ici           |
+-30   |                               |
       |  1 024 niveaux (2¹⁰)          | bit 11
 -36   |                               |
 ```
