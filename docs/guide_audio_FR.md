@@ -25,7 +25,7 @@ $$\text{dBFS} = 20 \times \log_{10}(\text{RMS})$$
 
 **Depuis le % Windows :**
 
-$$\text{dBFS} = 20 \times \log_{10}\left(\frac{\text{\%}}{100}\right)$$
+$$\text{dBFS} = 20 \times \log_{10}\left(\frac{p}{100}\right)$$
 
 > Note : cette formule suppose que le fichier audio est à 0 dBFS. Si ton fichier est à -10 dBFS : dBFS total = -10 + 20 × log10(% / 100)
 
