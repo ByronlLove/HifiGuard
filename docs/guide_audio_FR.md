@@ -1,6 +1,6 @@
-# Calcul du niveau sonore dB
+# Guide audio numérique — Niveaux et mesures
 
-**dBFS · dB(Z) · dB(A) · SPL**
+**dBFS · dB(Z) · dB(A) · SPL · Bits**
 
 ## 1. Les échantillons audio
 
