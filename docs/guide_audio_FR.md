@@ -54,6 +54,8 @@ $$\text{MAX\\_SPL} = S_{\text{dBmW}} + 10 \times \log_{10}\left(\frac{V_{\text{o
 
 $$\text{dB(Z) SPL} = \text{MAX\\_SPL} + \text{dBFS}$$
 
+> où dBFS = dBFS_source + Pre-Amp + 20 × log10(% / 100)
+
 **Paramètres :**
 
 *   $S_{\text{dB/mW}}$ : sensibilité du casque en dB/mW
@@ -131,7 +133,8 @@ $$\text{dB(A)} = 115{,}4 + 0 + 0 + (-6) + 0 + 0 + 0{,}1 = 109{,}5 \text{ dB(A)}$
 |RMS du signal        |sqrt( (1/n) × somme(xi²) )                                             |
 |dBFS depuis RMS      |20 × log10(RMS)                                                        |
 |MAX_SPL              |S + 10 × log10(V² / R × 1000)                                          |
-|dB(Z) SPL            |MAX_SPL + dBFS_source + Pre-Amp + vol_dB + HW(f) + EQ(f)               |
+|dBFS                 |dBFS_source + Pre-Amp + 20 × log10(% / 100)                            |
+|dB(Z) SPL            |MAX_SPL + dBFS + HW(f) + EQ(f)                                         |
 |R_A(f)               |12194² × f⁴ / ((f²+20,6²) × sqrt((f²+107,7²)(f²+737,9²)) × (f²+12194²))|
 |Gain filtre A        |20 × log10(RA(f)) + 2                                                  |
 |dB(A) SPL            |dB(Z) SPL + GA(f)                                                      |
