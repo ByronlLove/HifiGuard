@@ -63,18 +63,15 @@ $$\text{dB(Z) SPL} = \text{MAX\\_SPL} + \text{dBFS}$$
 
 **Exemple numérique :**
 
-<details>
-<summary>Casque Artti T10 : 96 dB/mW, 16,5 Ω - DAC : 1,2 Vrms - Peace UI Equalizer APO : -30 Pre-Amp - dBFS_source : -10 dBFS - Volume Windows : 50%.</summary>
-<br>
-MAX_SPL = 96 + 10 × log10((1,2² / 16,5) × 1000) = 115,4 dB SPL
-<br><br>
-vol_dB = 20 × log10(50 / 100) = 20 × log10(0,5) = -6 dB
-<br><br>
-dBFS = dBFS_source + Pre-Amp + vol_dB = -10 + (-30) + (-6) = -46 dBFS
-<br><br>
-dB(Z) SPL = 115,4 + (-46) = 69,4 dB(Z) SPL
+- Casque Artti T10 : 96 dB/mW, 16,5 Ω - DAC : 1,2 Vrms - Peace UI Equalizer APO : -30 Pre-Amp - dBFS_source : -10 dBFS - Volume Windows : 50%.
 
-</details>
+MAX_SPL = 96 + 10 × log10((1,2² / 16,5) × 1000) = 115,4 dB SPL
+
+vol_dB = 20 × log10(50 / 100) = 20 × log10(0,5) = -6 dB
+
+dBFS = dBFS_source + Pre-Amp + vol_dB = -10 + (-30) + (-6) = -46 dBFS
+
+dB(Z) SPL = 115,4 + (-46) = 69,4 dB(Z) SPL
 
 
 ## 4. Le filtre A — pondération de l'oreille
@@ -109,9 +106,9 @@ $$\text{dB(A)} = \text{dB(Z) SPL} + G_A(f)$$
 
 **Exemple :**
 
-- Avec le même casque, Artti T10, 50% Windows (-6 dBFS), fréquence 1 000 Hz :
+- Avec le même casque, Artti T10, 50% Windows (-6 dBFS), dBFS_source : 0 dBFS, Pre-Amp : 0 dB, fréquence 1 000 Hz :
 
-$$\text{dB(A)} = 115{,}4 + (-6) + 0{,}1 = 109{,}5 \text{ dB(A) }$$
+$$\text{dB(A)} = 115{,}4 + (-6) + 0{,}1 = 109{,}5 \text{ dB(A)}$$
 
 **Dangereux** — exposition prolongée déconseillée au-delà de quelques minutes.
 
