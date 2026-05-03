@@ -29,7 +29,7 @@ $$\text{dBFS} = 20 \times \log_{10}\left(\frac{p}{100}\right)$$
 
 où $p$ = volume Windows en % (le caractère % ne marchais pas dans la fraction)
 
-> Note : cette formule suppose que le fichier audio est à 0 dBFS. Si ton fichier est à -10 dBFS : dBFS = dBFS_source + 20 × log10(% / 100) =-10 + 20 × log10(% / 100)
+> Note : cette formule suppose que le fichier audio est à 0 dBFS. Si votre fichier est à -10 dBFS : dBFS = dBFS_source + 20 × log10(% / 100) =-10 + 20 × log10(% / 100)
 
 **Propriétés :**
 
@@ -150,9 +150,9 @@ Un échantillon c'est un nombre. Mais sur un ordinateur, tous les nombres ne son
 *   8 bits = 256 valeurs possibles
 *   16 bits = 65 536 valeurs possibles
 *   24 bits = 16 777 216 valeurs possibles
-Ramené au son : ta membrane doit bouger entre -1 et +1. Avec 16 bits, tu découpes cet intervalle en 65 536 positions possibles. Avec 24 bits, en 16 millions de positions.
+Ramené au son : La membrane doit bouger entre -1 et +1. Avec 16 bits, on découpe cet intervalle en 65 536 positions possibles. Avec 24 bits, en 16 millions de positions.
  
-Plus t'as de bits, plus la position de la membrane peut être décrite avec précision. Moins t'as de bits, plus le son sonne "en escalier" — c'est ce qu'on appelle la **distorsion de quantification**.
+Plus t'as de bits, plus la position de la membrane peut être décrite avec précision. Moins vous avez de bits, plus le son sonne "en escalier" — c'est ce qu'on appelle la **distorsion de quantification**.
 
 ```
 Amplitude
