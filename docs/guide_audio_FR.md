@@ -108,9 +108,11 @@ $$\text{dB(A)} = \text{dB(Z) SPL} + G_A(f)$$
 
 **Exemple :**
 
-- Avec le même casque, Artti T10, 50% Windows (-6 dBFS), dBFS_source : 0 dBFS, Pre-Amp : 0 dB, fréquence 1 000 Hz :
+- Avec le même casque, Artti T10, 50% Windows, dBFS_source : 0 dBFS, Pre-Amp : 0 dB, fréquence 1 000 Hz :
 
-$$\text{dB(A)} = 115{,}4 + (-6) + 0{,}1 = 109{,}5 \text{ dB(A)}$$
+$$\text{vol\\_dB} = 20 \times \log_{10}\left(\frac{50}{100}\right) = -6 \text{ dB}$$
+
+$$\text{dB(A)} = 115{,}4 + 0 + 0 + (-6) + 0{,}1 = 109{,}5 \text{ dB(A)}$$
 
 **Dangereux** — exposition prolongée déconseillée au-delà de quelques minutes.
 
