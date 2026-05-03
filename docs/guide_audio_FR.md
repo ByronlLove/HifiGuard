@@ -64,12 +64,15 @@ $$\text{dB(Z) SPL} = \text{MAX\\_SPL} + \text{dBFS}$$
 **Exemple numérique :**
 
 <details>
-<summary>Casque Artti T10 : 96 dB/mW, 16,5 Ω - DAC : 1,2 Vrms - Peace UI Equalizer APO : -30 Pre-Amp - dBFS_source : -10 dBFS.</summary>
+<summary>Casque Artti T10 : 96 dB/mW, 16,5 Ω - DAC : 1,2 Vrms - Peace UI Equalizer APO : -30 Pre-Amp - dBFS_source : -10 dBFS - Volume Windows : 50%.</summary>
 <br>
-
 MAX_SPL = 96 + 10 × log10((1,2² / 16,5) × 1000) = 115,4 dB SPL
 <br><br>
-dB(Z) SPL = 115,4 + (-30) - 10 = 75,4 dB(Z) SPL
+vol_dB = 20 × log10(50 / 100) = 20 × log10(0,5) = -6 dB
+<br><br>
+dBFS = dBFS_source + Pre-Amp + vol_dB = -10 + (-30) + (-6) = -46 dBFS
+<br><br>
+dB(Z) SPL = 115,4 + (-46) = 69,4 dB(Z) SPL
 
 </details>
 
@@ -94,7 +97,7 @@ $$G_A(f) = 20 \times \log_{10}(R_A(f)) + 2{,}00$$
 
 ## 5. Le dB(A) — formule complète
 
-$$\text{dB(A)} = \text{MAX\\_SPL} + \text{dBFS}_{source} + 20\log_{10}\left(\frac{p}{100}\right) + G_A(f)$$
+$$\text{dB(A)} = \text{MAX\\_SPL} + \text{dBFS}_{sorti} + 20\log_{10}\left(\frac{p}{100}\right) + G_A(f)$$
 
 où $p$ = volume Windows en %
 
