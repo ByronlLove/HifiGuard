@@ -98,7 +98,18 @@ $$G_A(f) = 20 \times \log_{10}(R_A(f)) + 2{,}00$$
 
 $$\text{dB(A)} = \text{MAX\\_SPL} + \text{dBFS\\_source} + \text{Pre-Amp} + 20\log_{10}\left(\frac{p}{100}\right) + \text{HW}(f) + \text{EQ}(f) + G_A(f)$$
 
-où $p$ = volume Windows en %
+\text{dBFS\\_source}
+ : niveau du fichier audio (mesuré par foobar2000 ou hifiguard)
+Pre-Amp\text{Pre-Amp}
+Pre-Amp : pré-amplification Peace/APO en dB (négatif = atténuation)
+pp
+p : volume Windows en %
+HW(f)\text{HW}(f)
+HW(f) : réponse en fréquence du matériel (casque/écouteurs) à la fréquence f
+EQ(f)\text{EQ}(f)
+EQ(f) : gain appliqué par l'égaliseur logiciel à la fréquence f
+GA(f)G_A(f)
+GA​(f) : gain du filtre A à la fréquence f (section 4)
 
 Ou plus simplement :
 
