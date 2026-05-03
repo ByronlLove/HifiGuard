@@ -65,9 +65,10 @@ $$\text{dB(Z) SPL} = \text{MAX\\_SPL} + \text{dBFS}$$
 
 <details>
 <summary>Casque Artti T10 : 96 dB/mW, 16,5 Ω - DAC : 1,2 Vrms - Peace UI Equalizer APO : -30 Pre-Amp.</summary>
+<br>
 
 MAX_SPL = 96 + 10 × log10((1,2² / 16,5) × 1000) = 115,4 dB SPL
-
+<br><br>
 dB(Z) SPL = 115,4 + (-30) = 85,4 dB(Z) SPL
 
 </details>
