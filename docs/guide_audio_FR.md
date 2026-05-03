@@ -65,13 +65,13 @@ $$\text{dB(Z) SPL} = \text{MAX\\_SPL} + \text{dBFS}$$
 
 - Casque Artti T10 : 96 dB/mW, 16,5 Ω - DAC : 1,2 Vrms - Peace UI Equalizer APO : -30 Pre-Amp - dBFS_source : -10 dBFS - Volume Windows : 50%.
 
-MAX_SPL = 96 + 10 × log10((1,2² / 16,5) × 1000) = 115,4 dB SPL
+$$\text{MAX\\_SPL} = 96 + 10 \times \log_{10}\left(\frac{1{,}2^2}{16{,}5} \times 1000\right) = 115{,}4 \text{ dB SPL}$$
 
-vol_dB = 20 × log10(50 / 100) = 20 × log10(0,5) = -6 dB
+$$\text{vol\\_dB} = 20 \times \log_{10}\left(\frac{50}{100}\right) = 20 \times \log_{10}(0{,}5) = -6 \text{ dB}$$
 
-dBFS = dBFS_source + Pre-Amp + vol_dB = -10 + (-30) + (-6) = -46 dBFS
+$$\text{dBFS} = \text{dBFS\\_source} + \text{Pre-Amp} + \text{vol\\_dB} = -10 + (-30) + (-6) = -46 \text{ dBFS}$$
 
-dB(Z) SPL = 115,4 + (-46) = 69,4 dB(Z) SPL
+$$\text{dB(Z) SPL} = 115{,}4 + (-46) = 69{,}4 \text{ dB(Z) SPL}$$
 
 
 ## 4. Le filtre A — pondération de l'oreille
