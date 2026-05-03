@@ -96,7 +96,7 @@ $$G_A(f) = 20 \times \log_{10}(R_A(f)) + 2{,}00$$
 
 ## 5. Le dB(A) — formule complète
 
-$$\text{dB(A)} = \text{MAX\\_SPL} + \text{dBFS\\_source} + \text{Pre-Amp} + 20\log_{10}\left(\frac{p}{100}\right) + G_A(f)$$
+\text{dB(A)} = \text{MAX\\_SPL} + \text{dBFS\\_source} + \text{Pre-Amp} + 20\log_{10}\left(\frac{p}{100}\right) + \text{HW}(f) + \text{EQ}(f) + G_A(f)
 
 où $p$ = volume Windows en %
 
@@ -108,7 +108,7 @@ $$\text{dB(A)} = \text{dB(Z) SPL} + G_A(f)$$
 
 **Exemple :**
 
-- Avec le même casque, Artti T10, 50% Windows, dBFS_source : 0 dBFS, Pre-Amp : 0 dB, HW(1000 Hz) : 0 dB, EQ(1000 Hz) : 0 dB, fréquence 1 000 Hz :
+- Avec le même casque, Artti T10 - 50% Windows - dBFS_source : 0 dBFS - Pre-Amp : 0 dB - HW(1000 Hz) : 0 dB - EQ(1000 Hz) : 0 dB - fréquence 1 000 Hz :
 
 $$\text{vol\\_dB} = 20 \times \log_{10}\left(\frac{50}{100}\right) = -6 \text{ dB}$$
 
