@@ -151,7 +151,7 @@ Ramené au son : ta membrane doit bouger entre -1 et +1. Avec 16 bits, tu décou
  
 Plus t'as de bits, plus la position de la membrane peut être décrite avec précision. Moins t'as de bits, plus le son sonne "en escalier" — c'est ce qu'on appelle la **distorsion de quantification**.
 
-'''
+```
 Amplitude
 +1.0 |    ****        ****
      |   *    *      *    *
@@ -165,9 +165,15 @@ Amplitude
      +---------------------------------> Temps
       ~~~~ signal idéal
       ---- signal 2 bits (escalier)
-'''
+```
 
-1 bit = 6 dBFS de dynamique. Donc :
+1 bit double le nombre de niveaux disponibles. Or doubler l'amplitude correspond à +6 dB :
+ 
+$$20 \times \log_{10}(2) = 6{,}02 \text{ dB}$$
+ 
+Donc chaque bit ajoute 6 dB de dynamique. Pour 16 bits :
+ 
+$$20 \times \log_{10}(2^{16}) = 20 \times 16 \times \log_{10}(2) = 96 \text{ dB}$$
  
 *   2 bits  = 12 dB de dynamique
 *   16 bits = 96 dB de dynamique
