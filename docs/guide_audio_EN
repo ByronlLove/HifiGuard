@@ -1,0 +1,210 @@
+# Digital Audio Guide — Levels and Measurements
+
+**dBFS · dB(Z) · dB(A) · SPL · Bits**
+
+## 1. Audio Samples
+
+An audio file is a sequence of numbers between **-1** and **+1**, called **samples**. Each number represents the position of the speaker membrane at a precise instant.
+
+*   +1.0 = membrane pushed to the maximum forward
+*   -1.0 = membrane pulled to the maximum backward
+*   0 = silence
+
+At 44,100 Hz, the computer takes **44,100 measurements per second**.
+
+
+## 2. dBFS (Digital Level)
+
+dBFS measures the amplitude of the digital signal **relative to the maximum possible value (1.0)**.
+
+**From the RMS of the signal:**
+
+$$\text{RMS} = \sqrt{\frac{1}{n}\sum_{i=1}^{n} x_i^2}$$
+
+$$\text{dBFS} = 20 \times \log_{10}(\text{RMS})$$
+
+**From Windows volume percentage:**
+
+$$\text{dBFS} = 20 \times \log_{10}\left(\frac{p}{100}\right)$$
+
+where $p$ = Windows volume in % (the % character did not work inside the fraction)
+
+> Note: this formula assumes the audio file is at 0 dBFS. If your file is at -10 dBFS: dBFS = dBFS_source + 20 × log10(% / 100) = -10 + 20 × log10(% / 100)
+
+**Properties:**
+
+*   Always negative or zero (you cannot exceed 1.0)
+*   0 dBFS = absolute maximum
+*   -30 dBFS = signal at 3.16% of the maximum
+
+**Examples:**
+
+|Windows %|dBFS     |
+|---------|---------|
+|100%     |0 dBFS   |
+|50%      |-6 dBFS  |
+|10%      |-20 dBFS |
+
+
+## 3. From dBFS to dB SPL (Z) — the MAX_SPL
+
+**dB SPL** (Sound Pressure Level) is the actual acoustic pressure in the air. To go from digital to acoustic, you need the hardware specs.
+
+$$\text{MAX\\_SPL} = S_{\text{dBmW}} + 10 \times \log_{10}\left(\frac{V_{\text{out}}^2}{R} \times 1000\right)$$
+
+$$\text{dB(Z) SPL} = \text{MAX\\_SPL} + \text{dBFS}$$
+
+> where dBFS = dBFS_source + Pre-Amp + 20 × log10(% / 100)
+
+**Parameters:**
+
+*   $S_{\text{dB/mW}}$ : headphone sensitivity in dB/mW
+*   $V_{\text{out}}$ : DAC output voltage in Vrms
+*   $R$ : headphone impedance in Ω
+*   $\times 1000$ : watts → milliwatts conversion
+
+**Numerical example:**
+
+- Headphones Artti T10 : 96 dB/mW, 16.5 Ω - DAC : 1.2 Vrms - Peace UI Equalizer APO : -30 Pre-Amp - dBFS_source : -10 dBFS - Windows volume : 50%.
+
+$$\text{MAX\\_SPL} = 96 + 10 \times \log_{10}\left(\frac{1.2^2}{16.5} \times 1000\right) = 115.4 \text{ dB SPL}$$
+
+$$\text{vol\\_dB} = 20 \times \log_{10}\left(\frac{50}{100}\right) = 20 \times \log_{10}(0.5) = -6 \text{ dB}$$
+
+$$\text{dBFS} = \text{dBFS\\_source} + \text{Pre-Amp} + \text{vol\\_dB} = -10 + (-30) + (-6) = -46 \text{ dBFS}$$
+
+$$\text{dB(Z) SPL} = 115.4 + (-46) = 69.4 \text{ dB(Z) SPL}$$
+
+> Note: the dB(Z) SPL calculated assumes a neutral headphone. In reality, two other factors modify the level at each frequency: the hardware frequency response (Hardware Response) and the software EQ (Peace/APO), if you use one. Both add up: dB(Z) SPL final = MAX_SPL + dBFS + HW(f) + EQ(f)
+
+
+## 4. The A-Filter — Ear Weighting
+
+The human ear does not hear all frequencies equally. The A-filter mimics this sensitivity. For each frequency $f$ (in Hz):
+
+$$R_A(f) = \frac{12194^2 \cdot f^4}{\left(f^2 + 20.6^2\right) \cdot \sqrt{\left(f^2 + 107.7^2\right)\left(f^2 + 737.9^2\right)} \cdot \left(f^2 + 12194^2\right)}$$
+
+$$G_A(f) = 20 \times \log_{10}(R_A(f)) + 2.00$$
+
+**Typical values:**
+
+|Frequency |Sound type  |$G_A(f)$  |Effect              |
+|----------|------------|----------|--------------------|
+|50 Hz     |Deep bass   |-30.2 dB  |Strongly attenuated |
+|1,000 Hz  |Human voice |≈ 0 dB    |Reference, unchanged|
+|4,000 Hz  |Whistle     |+1 dB     |Slightly amplified  |
+|10,000 Hz |Cymbals     |-2.5 dB   |Slightly attenuated |
+
+
+## 5. dB(A) — Full Formula
+
+$$\text{dB(A)} = \text{MAX\\_SPL} + \text{dBFS\\_source} + \text{Pre-Amp} + 20\log_{10}\left(\frac{p}{100}\right) + \text{HW}(f) + \text{EQ}(f) + G_A(f)$$
+
+*   $\text{dBFS\\_source}$ : audio file level
+*   $\text{Pre-Amp}$ : Peace/APO pre-amplification in dB (negative = attenuation, positive = gain)
+*   $p$ : Windows volume in %
+*   $\text{HW}(f)$ : hardware frequency response (headphones) at frequency f
+*   $\text{EQ}(f)$ : gain applied by the software equalizer at frequency f
+*   $G_A(f)$ : A-filter gain at frequency f (section 4)
+
+Or more simply:
+
+$$\text{dB(A)} = \text{dB(Z) SPL} + G_A(f)$$
+
+**In practice**, a music signal contains hundreds of simultaneous frequencies. $G_A(f)$ is calculated for each frequency (via FFT), then all contributions are summed.
+
+**Example:**
+
+- Same headphones, Artti T10 - 50% Windows - dBFS_source : 0 dBFS - Pre-Amp : 0 dB - HW(1000 Hz) : 0 dB - EQ(1000 Hz) : 0 dB - frequency 1,000 Hz :
+
+$$\text{vol\\_dB} = 20 \times \log_{10}\left(\frac{50}{100}\right) = -6 \text{ dB}$$
+
+$$\text{dB(A)} = 115.4 + 0 + 0 + (-6) + 0 + 0 + 0.1 = 109.5 \text{ dB(A)}$$
+
+**Dangerous** — prolonged exposure not recommended beyond a few minutes.
+
+
+## 6. Formula Summary
+
+|Calculation          |Formula                                                                |
+|---------------------|-----------------------------------------------------------------------|
+|Volume factor        |10^(dBFS/20)                                                           |
+|dBFS from Windows %  |20 × log10(% / 100)                                                    |
+|RMS of signal        |sqrt( (1/n) × sum(xi²) )                                               |
+|dBFS from RMS        |20 × log10(RMS)                                                        |
+|MAX_SPL              |S + 10 × log10(V² / R × 1000)                                          |
+|dBFS                 |dBFS_source + Pre-Amp + 20 × log10(% / 100)                            |
+|dB(Z) SPL            |MAX_SPL + dBFS + HW(f) + EQ(f)                                         |
+|R_A(f)               |12194² × f⁴ / ((f²+20.6²) × sqrt((f²+107.7²)(f²+737.9²)) × (f²+12194²))|
+|A-filter gain        |20 × log10(RA(f)) + 2                                                  |
+|dB(A) SPL            |dB(Z) SPL + GA(f)                                                      |
+
+**Danger thresholds (WHO / NIOSH):** 80 dB(A) over 40h/week / 85 dB(A) over 8h/day
+
+
+## 7. Resolution — Bits
+
+A sample is a number. But on a computer, not all numbers are equal. A number can be stored with more or less precision depending on how many **bits** are allocated to it.
+
+*   2 bits = 4 possible values
+*   8 bits = 256 possible values
+*   16 bits = 65,536 possible values
+*   24 bits = 16,777,216 possible values
+
+Applied to sound: your membrane must move between -1 and +1. With 16 bits, you divide this range into 65,536 possible positions. With 24 bits, into 16 million positions.
+
+The more bits you have, the more precisely the membrane position can be described. The fewer bits, the more the sound sounds "staircase-like" — this is called **quantization distortion**.
+
+```
+Amplitude
++1.0 |    ****        ****
+     |   *    *      *    *
++0.5 |  *------*    *  ----*-
+     | *       |*  *  |     *|
+ 0.0 |*        | **   |      *
+     |         |      |      |*        *
+-0.5 |          ------        -*------*-
+     |                          *    *
+-1.0 |                           ****
+     +---------------------------------> Time
+      ~~~~ ideal signal
+      ---- 1 bit signal (staircase)
+```
+
+1 bit doubles the number of available levels. Doubling the amplitude corresponds to +6 dB:
+
+$$20 \times \log_{10}(2) = 6.02 \text{ dB}$$
+
+So each bit adds 6 dB of dynamic range. For 16 bits:
+
+$$20 \times \log_{10}(2^{16}) = 20 \times 16 \times \log_{10}(2) = 96 \text{ dB}$$
+
+*   2 bits  = 12 dB of dynamic range
+*   16 bits = 96 dB of dynamic range
+*   24 bits = 144 dB of dynamic range
+
+### Resolution is not the same everywhere
+
+In 16 bits, the 65,536 levels are not evenly distributed across the dBFS range. Each 6 dBFS slice contains **half the levels** of the slice above it.
+
+```
+dBFS  | Available levels (16 bits)    | Bits used
+------+-------------------------------+----------
+  0   |                               |
+      | 32,768 levels (2¹⁵)           | bit 16
+ -6   |                               |
+      | 16,384 levels (2¹⁴)           | bit 15
+-12   |                               |
+      |  8,192 levels (2¹³)           | bit 14
+-18   |                               |
+      |  4,096 levels (2¹²)           | bit 13
+-24   |                               |
+      |  2,048 levels (2¹¹)           | bit 12
+-30   | <-- your sound is here        |
+      |  1,024 levels (2¹⁰)           | bit 11
+-36   |                               |
+```
+
+A sound at **-30 dBFS** only uses 11 bits out of 16. The slice between -30 and -24 dBFS contains only 2,048 levels to describe all the nuances of the sound. The slice between -6 and 0 dBFS contains 32,768 — that is **16 times more precision**.
+
+This is why you always record as close to 0 dBFS as possible without clipping: to use the maximum number of available levels and get the most precise sound possible.
