@@ -167,7 +167,7 @@ Amplitude
 -1.0 |                           ****
      +---------------------------------> Temps
       ~~~~ signal idéal
-      ---- signal 2 bits (escalier)
+      ---- signal 1 bit (escalier)
 ```
 
 1 bit double le nombre de niveaux disponibles. Or doubler l'amplitude correspond à +6 dB :
