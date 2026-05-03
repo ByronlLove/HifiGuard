@@ -98,18 +98,12 @@ $$G_A(f) = 20 \times \log_{10}(R_A(f)) + 2{,}00$$
 
 $$\text{dB(A)} = \text{MAX\\_SPL} + \text{dBFS\\_source} + \text{Pre-Amp} + 20\log_{10}\left(\frac{p}{100}\right) + \text{HW}(f) + \text{EQ}(f) + G_A(f)$$
 
-\text{dBFS\\_source}
- : niveau du fichier audio (mesuré par foobar2000 ou hifiguard)
-Pre-Amp\text{Pre-Amp}
-Pre-Amp : pré-amplification Peace/APO en dB (négatif = atténuation)
-pp
-p : volume Windows en %
-HW(f)\text{HW}(f)
-HW(f) : réponse en fréquence du matériel (casque/écouteurs) à la fréquence f
-EQ(f)\text{EQ}(f)
-EQ(f) : gain appliqué par l'égaliseur logiciel à la fréquence f
-GA(f)G_A(f)
-GA​(f) : gain du filtre A à la fréquence f (section 4)
+*   $\text{dBFS\\_source}$ : niveau du fichier audio
+*   $\text{Pre-Amp}$ : pré-amplification Peace/APO en dB (négatif = atténuation, positif = gain)
+*   $p$ : volume Windows en %
+*   $\text{HW}(f)$ : réponse en fréquence du matériel (casque/écouteurs) à la fréquence f
+*   $\text{EQ}(f)$ : gain appliqué par l'égaliseur logiciel à la fréquence f 
+*   $G_A(f)$ : gain du filtre A à la fréquence f (section 4)
 
 Ou plus simplement :
 
@@ -143,3 +137,64 @@ $$\text{dB(A)} = 115{,}4 + 0 + 0 + (-6) + 0 + 0 + 0{,}1 = 109{,}5 \text{ dB(A)}$
 |dB(A) SPL            |dB(Z) SPL + GA(f)                                                      |
 
 **Seuils de danger (OMS / NIOSH) :** 80 dB(A) sur 40h/semaine / 85 dB(A) sur 8h/jour
+
+
+## 7. La résolution — les bits
+ 
+Un échantillon c'est un nombre. Mais sur un ordinateur, tous les nombres ne sont pas égaux. Un nombre peut être stocké avec plus ou moins de précision selon combien de **bits** on lui alloue.
+ 
+*   2 bits = 4 valeurs possibles
+*   8 bits = 256 valeurs possibles
+*   16 bits = 65 536 valeurs possibles
+*   24 bits = 16 777 216 valeurs possibles
+Ramené au son : ta membrane doit bouger entre -1 et +1. Avec 16 bits, tu découpes cet intervalle en 65 536 positions possibles. Avec 24 bits, en 16 millions de positions.
+ 
+Plus t'as de bits, plus la position de la membrane peut être décrite avec précision. Moins t'as de bits, plus le son sonne "en escalier" — c'est ce qu'on appelle la **distorsion de quantification**.
+
+'''
+Amplitude
++1.0 |    ****        ****
+     |   *    *      *    *
++0.5 |  *------*    *  ----*-
+     | *       |*  *  |     *|
+ 0.0 |*        | **   |      *
+     |         |      |      |*        *
+-0.5 |          ------       |-*------*-
+     |                          *    *
+-1.0 |                           ****
+     +---------------------------------> Temps
+      ~~~~ signal idéal
+      ---- signal 2 bits (escalier)
+'''
+
+1 bit = 6 dBFS de dynamique. Donc :
+ 
+*   2 bits  = 12 dB de dynamique
+*   16 bits = 96 dB de dynamique
+*   24 bits = 144 dB de dynamique
+
+### La résolution n'est pas la même partout
+ 
+En 16 bits, les 65 536 niveaux ne sont pas répartis uniformément sur toute la plage dBFS. Chaque tranche de 6 dBFS contient **la moitié des niveaux** de la tranche au-dessus.
+ 
+```
+dBFS  | Niveaux disponibles (16 bits) | Bits utilisés
+------+-------------------------------+---------------
+  0   |                               |
+      | 32 768 niveaux (2¹⁵)          | bit 16
+ -6   |                               |
+      | 16 384 niveaux (2¹⁴)          | bit 15
+-12   |                               |
+      |  8 192 niveaux (2¹³)          | bit 14
+-18   |                               |
+      |  4 096 niveaux (2¹²)          | bit 13
+-24   |                               |
+      |  2 048 niveaux (2¹¹)          | bit 12
+-30   | <-- ton son est ici           |
+      |  1 024 niveaux (2¹⁰)          | bit 11
+-36   |                               |
+```
+ 
+Un son à **-30 dBFS** n'utilise que 11 bits sur 16. La tranche entre -30 et -24 dBFS ne contient que 2 048 niveaux pour décrire toutes les nuances du son. La tranche entre -6 et 0 dBFS en contient 32 768 — soit **16 fois plus de précision**.
+ 
+C'est pour ça qu'on enregistre toujours aussi proche de 0 dBFS que possible sans saturer : pour utiliser le maximum de niveaux disponibles et avoir le son le plus précis possible.
