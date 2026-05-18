@@ -234,7 +234,7 @@ Non. Comme expliqué dans la section *Limites et précision*, les casques Blueto
 
 ## To Do
 
-- [ ] **Correction de réponse en fréquence :** Intégration des courbes de réponse spécifiques à chaque casque ou écouteur pour un calcul SPL encore plus précis.
+- [x] **Correction de réponse en fréquence :** Intégration des courbes de réponse spécifiques à chaque casque ou écouteur pour un calcul SPL encore plus précis.
 - [ ] **Thèmes visuels :** Support des modes d'interface « Ghost » et « Transparent ».
 - [ ] **Optimisation des données :** Diviser le fichier d'historique CSV par jour.
 
