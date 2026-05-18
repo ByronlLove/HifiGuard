@@ -226,7 +226,7 @@ No. As explained in the *Limits and precision* section, Bluetooth headphones hav
 
 ## Road map
 
-- [ ] **Frequency Response Compensation:** Integration of specific frequency response curves for each headphone or earphone for an even more precise SPL calculation.
+- [x] **Frequency Response Compensation:** Integration of specific frequency response curves for each headphone or earphone for an even more precise SPL calculation.
 - [ ] **Visual Themes:** Support for "Ghost" and "Transparent" UI modes.
 - [ ] **Data Optimization:** Split the historical CSV file by day.
 
