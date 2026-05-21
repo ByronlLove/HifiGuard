@@ -14,7 +14,11 @@ warnings.simplefilter("ignore")
 
 if getattr(sys, 'frozen', False):
     try:
-        app_root = Path(os.environ.get('APPDATA', '')) / "HifiGuard"
+        import platform
+        if platform.system() == 'Windows':
+            app_root = Path(os.environ.get('APPDATA', '')) / "HifiGuard"
+        else:
+            app_root = Path.home() / ".config" / "HifiGuard"
         app_root.mkdir(parents=True, exist_ok=True)
         log_file = app_root / "daemon_errors.log"
         
@@ -35,7 +39,6 @@ if hasattr(sys.stderr, 'reconfigure'):
         sys.stderr.reconfigure(encoding='utf-8', errors='replace')
     except Exception: pass
 
-import comtypes
 import sounddevice as sd
 import soundcard as sc
 import numpy as np
@@ -44,8 +47,15 @@ import csv
 import time
 from datetime import datetime, timedelta
 import scipy.signal as signal
-from pycaw.pycaw import AudioUtilities
 import threading
+
+# Détection de l'OS
+IS_WINDOWS = sys.platform == 'win32'
+
+if IS_WINDOWS:
+    import comtypes
+    from pycaw.pycaw import AudioUtilities
+
 SHARED_STATE = {'force_reload': False}
 
 def stdin_listener():
@@ -63,9 +73,12 @@ def stdin_listener():
 # CHEMINS
 # ══════════════════════════════════════════════════════════
 if getattr(sys, 'frozen', False):
-    # Mode PRODUCTION (.exe compilé)
-    APPDATA_DIR = os.environ.get('APPDATA')
-    DATA_DIR    = os.path.join(APPDATA_DIR, 'HifiGuard', 'data')
+    # Mode PRODUCTION (.exe compilé ou AppImage)
+    if IS_WINDOWS:
+        APPDATA_DIR = os.environ.get('APPDATA')
+        DATA_DIR    = os.path.join(APPDATA_DIR, 'HifiGuard', 'data')
+    else:
+        DATA_DIR    = os.path.join(os.path.expanduser('~'), '.config', 'HifiGuard', 'data')
 else:
     # Mode DÉVELOPPEMENT (script .py lancé par npm start)
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -476,7 +489,6 @@ def bar(db_a, width=20):
 _WMF_RECOVERABLE = {
     'Error 0x88890004',   # AUDCLNT_E_DEVICE_INVALIDATED
     'Error 0x8889000a',   # AUDCLNT_E_RESOURCES_INVALIDATED
-    'Error 0x88890010',   # AUDCLNT_E_SERVICE_NOT_RUNNING
     'Error 0x100000001',  # Erreur de cleanup __exit__ après crash
 }
 MAX_RETRIES    = 10       # tentatives max avant abandon
@@ -521,8 +533,10 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
     zi     = signal.lfilter_zi(b, a)
     zi_raw = signal.lfilter_zi(b, a)  # Utilisé uniquement en mode comparaison CPU+
 
-    devices = AudioUtilities.GetSpeakers()
-    volume  = devices.EndpointVolume
+    volume = None
+    if IS_WINDOWS:
+        devices = AudioUtilities.GetSpeakers()
+        volume  = devices.EndpointVolume
 
     # --- NOUVEAU : Écoute du DAC spécifique sélectionné ---
     device_name = config.get('audio_device', 'default')
@@ -536,18 +550,30 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
         speaker = sc.default_speaker()
 
     # --- NOUVEAU : On force Python à prendre le "Loopback" et à ignorer l'entrée Micro ---
-    all_mics = sc.all_microphones(include_loopback=True)
+    try:
+        # Sur Linux et Windows, on tente une détection large incluant le loopback
+        all_mics = sc.all_microphones(include_loopback=True)
+        # Si vide, on tente sans le flag loopback (fallback)
+        if not all_mics:
+            all_mics = sc.all_microphones()
+    except Exception as e:
+        print(f"Erreur sc.all_microphones : {e}")
+        all_mics = []
+        
     mic = None
-    
-    # On cherche le périphérique qui a le bon nom ET qui est un flux interne (Loopback)
     for m in all_mics:
-        if getattr(m, 'isloopback', False) and m.name == speaker.name:
+        if IS_WINDOWS and getattr(m, 'isloopback', False) and m.name == speaker.name:
+            mic = m
+            break
+        elif not IS_WINDOWS and speaker.name in m.name:
             mic = m
             break
             
-    # Sécurité de secours
     if not mic:
-        mic = sc.get_microphone(id=speaker.name, include_loopback=True)
+        if IS_WINDOWS:
+            mic = sc.get_microphone(id=speaker.name, include_loopback=True)
+        else:
+            mic = sc.default_microphone()
 
     print(f'Monitoring : {mic.name} (Loopback) (@ {DAC_FS} Hz)')
     current_profiles = config.get('profiles', {})
@@ -661,8 +687,14 @@ def _run_capture(tracker, config, profile_name, MAX_SPL, refresh_cfg):
                     zi_eq = None
 
                 # ── CAPTURE ET CALCULS ─────────────────────────────────────
-                vol_db   = volume.GetMasterVolumeLevel()
-                is_muted = (vol_db < -60)
+                if IS_WINDOWS:
+                    vol_db   = volume.GetMasterVolumeLevel()
+                    is_muted = (vol_db < -60)
+                else:
+                    # Sur Linux, le volume de PulseAudio est géré en amont par l'OS
+                    # On le fixe à 0 dB (100%) côté Python
+                    vol_db   = 0.0
+                    is_muted = False
 
                 data = recorder.record(numframes=BLOCK_SIZE)
                 if len(data.shape) > 1:

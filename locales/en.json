@@ -137,7 +137,7 @@
   "spec_bands_custom": "Custom...",
   
   "sys_device_title": "Audio Device (WASAPI Loopback)",
-  "sys_device_default": "Windows Default Device",
+  "sys_device_default": "System Default Device",
   "sys_device_search": "Searching...",
   "sys_device_refresh": "Refresh",
   
@@ -148,7 +148,7 @@
   "sys_sim_title": "SPL Simulator",
   "sys_sim_load": "Load active profile",
   "sim_dbfs": "Level (dBFS)",
-  "sim_vol": "Windows Volume (%)",
+  "sim_vol": "System Volume (%)",
   "sim_freq": "Frequency (Hz) - Optional",
   "sys_sim_calc": "Calculate real volume",
   "sys_sim_limits": "Exposure Limits (Simulated)",

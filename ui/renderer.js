@@ -1120,6 +1120,13 @@ async function renderSettings() {
 function renderProfileList() {
   const list = document.getElementById('profile-list')
   list.innerHTML = ''
+
+  // SÉCURITÉ : On vérifie que config et config.profiles existent bien !
+  if (!config || !config.profiles) {
+    list.innerHTML = `<div style="padding:15px; color:var(--muted); text-align:center;">Aucun profil configuré.</div>`
+    return
+  }
+
   Object.entries(config.profiles).forEach(([name, p]) => {
     const unit     = p.sensitivity_unit || 'dB/mW'
     const maxSpl   = computeMaxSpl(p.sensitivity, unit, p.impedance, p.dac_vout)
@@ -1829,7 +1836,7 @@ async function renderSystem() {
       
       const devices = await window.hifi.getAudioDevices();
       
-      deviceSelect.innerHTML = '<option value="default">Périphérique par défaut de Windows</option>';
+      deviceSelect.innerHTML = '<option value="default">Périphérique par défaut du système</option>';
       devices.forEach(d => {
         const opt = document.createElement('option');
         opt.value = d.id; 

@@ -1,6 +1,6 @@
 {
   "name": "hifiguard",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Personal hearing dosimeter for headphones and earphones.",
   "author": "ByronlLove",
   "license": "AGPL-3.0",
@@ -44,8 +44,12 @@
     ],
     "extraResources": [
       {
-        "from": "daemon/hifiguard-daemon.exe",
-        "to": "daemon/hifiguard-daemon.exe"
+        "from": "daemon",
+        "to": "daemon",
+        "filter": [
+          "hifiguard-daemon.exe",
+          "hifiguard-daemon"
+        ]
       },
       {
         "from": "assets/",
@@ -92,6 +96,13 @@
     },
     "portable": {
       "artifactName": "HifiGuard-${version}-portable.exe"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Audio",
+      "icon": "assets/icon.png"
     }
   }
 }

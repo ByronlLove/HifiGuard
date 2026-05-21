@@ -25,12 +25,13 @@ const CONFIG_PATH  = path.join(DATA_DIR, 'config.json');
 const JSON_PATH    = path.join(DATA_DIR, 'suivi_audio.json');
 const CSV_PATH     = path.join(DATA_DIR, 'historique.csv');
 
-// En production, le daemon est compilé en .exe via PyInstaller
+// En production, le daemon est compilé via PyInstaller (.exe ou binaire natif)
 // En développement, on lance le .py directement avec python
+const DAEMON_BIN = process.platform === 'win32' ? 'hifiguard-daemon.exe' : 'hifiguard-daemon';
 const DAEMON_PATH  = IS_PROD
-  ? path.join(process.resourcesPath, 'daemon', 'hifiguard-daemon.exe')
+  ? path.join(process.resourcesPath, 'daemon', DAEMON_BIN)
   : path.join(__dirname, '..', 'daemon', 'hifiguard.py');
-const PYTHON_CMD   = IS_PROD ? null : 'python';
+const PYTHON_CMD   = IS_PROD ? null : (process.platform === 'win32' ? 'python' : 'python3');
 
 // Création du dossier de données s'il n'existe pas
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -165,7 +166,21 @@ function readJSON(p) {
   try { return JSON.parse(fs.readFileSync(p, 'utf8')) } catch { return null }
 }
 const readState  = () => readJSON(STATE_PATH)
-const readConfig = () => readJSON(CONFIG_PATH)
+const readConfig = () => {
+  let cfg = readJSON(CONFIG_PATH);
+  // Si le fichier n'existe pas, on crée une structure par défaut en mémoire
+  if (!cfg) {
+    cfg = { 
+      active_profile: "", 
+      profiles: {}, 
+      refresh_mode: "focus", 
+      tray_thresholds: { ok: 75, warn: 80, danger: 85 } 
+    };
+  }
+  // Double sécurité
+  if (!cfg.profiles) cfg.profiles = {};
+  return cfg;
+}
 
 // ══════════════════════════════════════════════════════════
 // LECTURE CSV - streaming readline + downsampling dans le main process
@@ -503,7 +518,9 @@ ipcMain.handle('get-audio-devices', async () => {
       : `"${PYTHON_CMD}" -X utf8 "${DAEMON_PATH}" --list-devices`
     require('child_process').exec(cmd, (err, stdout) => {
       try {
-        resolve(JSON.parse(stdout.trim()))
+        // SÉCURITÉ LINUX : Extrait uniquement le tableau JSON et ignore les avertissements ALSA
+        const match = stdout.match(/\[.*\]/s);
+        resolve(match ? JSON.parse(match[0]) : []);
       } catch { resolve([]) }
     })
   })
@@ -633,15 +650,29 @@ ipcMain.on('trigger-python-reload', () => {
 });
 
 // ══════════════════════════════════════════════════════════
-// AUTO LAUNCH WINDOWS
+// AUTO LAUNCH WINDOWS & LINUX
 // ══════════════════════════════════════════════════════════
 function setAutoLaunch(enable) {
-  if (process.platform !== 'win32') return
-  const key = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run'
-  try {
-    if (enable) execSync(`reg add "${key}" /v HifiGuard /t REG_SZ /d "${process.execPath}" /f`)
-    else        execSync(`reg delete "${key}" /v HifiGuard /f`)
-  } catch (e) { console.error('AutoLaunch:', e.message) }
+  if (process.platform === 'win32') {
+    const key = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run'
+    try {
+      if (enable) execSync(`reg add "${key}" /v HifiGuard /t REG_SZ /d "${process.execPath}" /f`)
+      else        execSync(`reg delete "${key}" /v HifiGuard /f`)
+    } catch (e) { console.error('AutoLaunch Windows:', e.message) }
+  } 
+  else if (process.platform === 'linux') {
+    const autostartDir = path.join(app.getPath('home'), '.config', 'autostart');
+    const desktopFilePath = path.join(autostartDir, 'hifiguard.desktop');
+    try {
+      if (enable) {
+        if (!fs.existsSync(autostartDir)) fs.mkdirSync(autostartDir, { recursive: true });
+        const desktopContent = `[Desktop Entry]\nType=Application\nVersion=1.0\nName=HifiGuard\nComment=Personal hearing dosimeter\nExec="${process.execPath}"\nX-GNOME-Autostart-enabled=true\nTerminal=false\nIcon=hifiguard\nCategories=Audio;Utility;\n`;
+        fs.writeFileSync(desktopFilePath, desktopContent, 'utf-8');
+      } else {
+        if (fs.existsSync(desktopFilePath)) fs.unlinkSync(desktopFilePath);
+      }
+    } catch (e) { console.error('AutoLaunch Linux:', e.message) }
+  }
 }
 
 // ══════════════════════════════════════════════════════════
