@@ -52,11 +52,11 @@ HifiGuard is natively compatible with system equalisation solutions such as [Equ
 
 ## Installation
 
-| Version   | File                                                                                                                            | Size   | Requirements             |
-|-----------|---------------------------------------------------------------------------------------------------------------------------------|--------|--------------------------|
-| Installer | [`HifiGuard-Setup-1.3.0.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.3.0/HifiGuard-Setup-1.3.0.exe)       | 128 MB | None - Python is bundled |
-| Portable  | [`HifiGuard-1.3.0-portable.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.3.0/HifiGuard-1.3.0-portable.exe) | 126 MB | None - Python is bundled |
-| Portable  | [`HifiGuard-1.3.0.AppImage`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.3.0/HifiGuard-1.3.0-portable.exe)     | 157 MB | PulseAudio / PipeWire    |
+| Version             | File                                                                                                                            | Size   | Requirements             |
+|---------------------|---------------------------------------------------------------------------------------------------------------------------------|--------|--------------------------|
+| Installer (Windows) | [`HifiGuard-Setup-1.3.0.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.3.0/HifiGuard-Setup-1.3.0.exe)       | 128 MB | None - Python is bundled |
+| Portable  (Windows) | [`HifiGuard-1.3.0-portable.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.3.0/HifiGuard-1.3.0-portable.exe) | 126 MB | None - Python is bundled |
+| Portable  (Linux)   | [`HifiGuard-1.3.0.AppImage`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.3.0/HifiGuard-1.3.0-portable.exe)     | 157 MB | PulseAudio / PipeWire    |
 
 
 ### First launch
