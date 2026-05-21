@@ -34,19 +34,26 @@ HifiGuard is natively compatible with system equalisation solutions such as [Equ
 
 ## Features
 
+- Cross-platform support: Windows (WASAPI Loopback) and Linux (PulseAudio/PipeWire)
 - Real-time measurement of sound exposure in dB(A) and dB(Z)
 - NIOSH and WHO/ITU H.870 dose tracking, daily and weekly
+- High-performance Native WebGL Spectrum Analyzer: Adjustable bands (20 to 160), A/Z weighting, and visual compensation
+- AutoEq Manager: Import .txt GraphicEq files to apply FIR filters directly to the analysis
+- Comparison Mode: Live CPU+ comparison between raw and equalized audio in dB(A)
+- SPL Simulator: Calculate theoretical limits and maximum exposure times based on hardware specs, digital volume, and frequency
 - Today graph with adjustable resolution (Auto / 10s / 1 min / 5 min)
-- Double-click on the graph: last minute in high precision (measurements every 25 ms), updated continuously in the background even when minimised to tray
+- High-precision zoom: Double-click on the graph to switch to a high-resolution view (dynamically adapted), updated continuously in the background even when minimised to tray
 - Follow mode: when zoomed in and anchored to the right edge, the curve advances in real time
-- Historical calendar: year → month → day view with curves, statistics, average and median
+- Historical calendar: year -> month -> day view with curves, statistics, average and median
 - Configurable secondary metric in the month view (WHO %, NIOSH %, average dB(A), median dB(A), peak dB(A), average dB(Z))
 - Average and median calculated on measurements with sound only (silences excluded)
-- Right-click on a day or month in the calendar to delete its data
+- Advanced Data Management: Right-click to delete specific days/months, auto-purge data older than 90 days, and easy ZIP backup
 - Colour-coded tray icon by level (green / yellow / orange / red)
-- Compatible with Equalizer APO / Peace - the loopback capture accounts for applied software EQ
+- Compatible with system-wide EQs (Equalizer APO / Peace) - the loopback capture accounts for applied software EQ
+- Hot-reload configuration: Change hardware profiles and UI settings without dropping the audio stream
+- Pause functionality: Press Spacebar to pause live charts and the daemon console
 - Automatic daemon restart on audio device disconnection (up to 10 attempts)
-- Launch at Windows startup
+- Launch at Windows/Linux startup
 - French and English interface
 
 
