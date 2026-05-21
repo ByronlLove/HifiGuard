@@ -1,10 +1,10 @@
 ![](assets/icon%20banner.svg)
 
-**Personal hearing dosimeter for headphones and earphones - Windows**
+**Personal hearing dosimeter for headphones and earphones - Windows & Linux**
 
 *Read this in other languages: [Français](README_FR.md).*
 
-HifiGuard is a hearing dosimeter for Windows, built on Electron and Python, designed to monitor sound exposure when using headphones or earphones. The application intercepts the digital audio stream from the system via the WASAPI loopback interface and calculates, based on the hardware's electrical specifications, the theoretical sound pressure level (SPL) received at the ear.
+HifiGuard is a cross-platform hearing dosimeter for Windows and Linux, built on Electron and Python, designed to monitor sound exposure when using headphones or earphones. The application intercepts the digital audio stream from the system via the WASAPI loopback interface and calculates, based on the hardware's electrical specifications, the theoretical sound pressure level (SPL) received at the ear.
 
 The analysis engine applies A-weighting frequency filtering (IEC 61672-1 standard) to reflect the sensitivity of human hearing. It quantifies daily and weekly exposure against the NIOSH and WHO/ITU H.870 reference standards.
 
@@ -54,8 +54,9 @@ HifiGuard is natively compatible with system equalisation solutions such as [Equ
 
 | Version   | File                                                                                                                            | Size   | Requirements             |
 |-----------|---------------------------------------------------------------------------------------------------------------------------------|--------|--------------------------|
-| Installer | [`HifiGuard-Setup-1.2.0.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.2.0/HifiGuard-Setup-1.2.0.exe)       | 128 MB | None - Python is bundled |
-| Portable  | [`HifiGuard-1.2.0-portable.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.2.0/HifiGuard-1.2.0-portable.exe) | 126 MB | None - Python is bundled |
+| Installer | [`HifiGuard-Setup-1.3.0.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.3.0/HifiGuard-Setup-1.3.0.exe)       | 128 MB | None - Python is bundled |
+| Portable  | [`HifiGuard-1.3.0-portable.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.3.0/HifiGuard-1.3.0-portable.exe) | 126 MB | None - Python is bundled |
+| Portable  | [`HifiGuard-1.2.0.AppImage`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.3.0/HifiGuard-1.3.0-portable.exe)     | 157 MB | PulseAudio / PipeWire    |
 
 
 ### First launch
@@ -115,6 +116,7 @@ HifiGuard/
 │   └── historique.csv
 ├── assets/             Icons and screenshots
 ├── build.bat           One-click Windows build script
+├── build.sh            One-click Linux build script (WSL/Ubuntu)
 └── package.json
 └── package-lock.json
 ```
@@ -144,8 +146,8 @@ The calculation relies on the Windows audio architecture. Certain hardware or so
 | NIOSH standard       | 85 dB(A) criterion level, 8h criterion time, 3 dB exchange rate (NIOSH 1998) |
 | WHO standard         | 80 dB(A), 342 min/day, 40h/week - ITU-T H.870                                |
 | Interface            | Electron 28, Chart.js 4.4, chartjs-plugin-zoom                               |
-| Daemon               | Python 3.10+, NumPy, SciPy, soundcard, pycaw                                 |
-| Platform             | Windows 10 / 11 (x64)                                                        |
+| Daemon               | Python 3.10+, NumPy, SciPy, soundcard (pycaw on Windows only)                |
+| Platform             | Windows 10/11 (x64), Linux (AppImage x64)                                    |
 
 
 ## Development
@@ -201,6 +203,32 @@ Output files are in `dist/`.
 ### Portable version
 
 The portable executable produced by `build.bat` (`HifiGuard-x.x.x-portable.exe`) requires no installation. It can be run directly from any location. User data is stored in `%APPDATA%\HifiGuard\data\` by default.
+
+## For Linux
+
+The Linux version is provided as an [AppImage](https://appimage.org/). 
+
+### Prerequisites
+- **Audio Server**: Your system must have either **PulseAudio** or **PipeWire** installed and running to capture system audio.
+- **Dependencies**: Ensure you have `libpulse0` and `pipewire` installed.
+
+### Build from source
+If you want to build from source on Linux (or via WSL), run the following commands:
+
+```bash
+# 1. Clone the repository
+git clone [https://github.com/ByronlLove/HifiGuard.git](https://github.com/ByronlLove/HifiGuard.git)
+cd HifiGuard
+
+# 2. Install dependencies (Node.js & Python)
+# (Ensure you have npm and python3-venv installed via your package manager)
+npm install
+python3 -m venv venv
+source venv/bin/activate
+pip install pyinstaller soundcard sounddevice numpy scipy
+
+# 3. Build the daemon and the AppImage
+bash build.sh
 
 
 ## Frequently Asked Questions (FAQ)
