@@ -56,7 +56,7 @@ HifiGuard is natively compatible with system equalisation solutions such as [Equ
 |-----------|---------------------------------------------------------------------------------------------------------------------------------|--------|--------------------------|
 | Installer | [`HifiGuard-Setup-1.3.0.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.3.0/HifiGuard-Setup-1.3.0.exe)       | 128 MB | None - Python is bundled |
 | Portable  | [`HifiGuard-1.3.0-portable.exe`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.3.0/HifiGuard-1.3.0-portable.exe) | 126 MB | None - Python is bundled |
-| Portable  | [`HifiGuard-1.2.0.AppImage`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.3.0/HifiGuard-1.3.0-portable.exe)     | 157 MB | PulseAudio / PipeWire    |
+| Portable  | [`HifiGuard-1.3.0.AppImage`](https://github.com/ByronlLove/HifiGuard/releases/download/v1.3.0/HifiGuard-1.3.0-portable.exe)     | 157 MB | PulseAudio / PipeWire    |
 
 
 ### First launch
@@ -229,6 +229,7 @@ pip install pyinstaller soundcard sounddevice numpy scipy
 
 # 3. Build the daemon and the AppImage
 bash build.sh
+```
 
 
 ## Frequently Asked Questions (FAQ)
@@ -255,7 +256,7 @@ No. As explained in the *Limits and precision* section, Bluetooth headphones hav
 ## Road map
 
 - [x] **Frequency Response Compensation:** Integration of specific frequency response curves for each headphone or earphone for an even more precise SPL calculation.
-- [ ] **Linux Support:** Cross-platform audio engine and AppImage build.
+- [x] **Linux Support:** Cross-platform audio engine and AppImage build.
 - [ ] **Visual Themes:** Support for "Ghost" and "Transparent" UI modes.
 - [ ] **Data Optimization:** Split the historical CSV file by day.
 
